@@ -2,6 +2,32 @@
 
 #include <liegroups/matrix.hpp>
 #include <liegroups/scalar.hpp>
+#include <iostream>
+
+template <typename T>
+static void swap(T &a, T &b)
+{
+    T tmp = a;
+    a = b;
+    b = tmp;
+}
+
+template <typename S>
+static void swap(S *a, S *b, int n)
+{
+    for (int i=0; i<n; ++i) {
+        S tmp = a[i];
+        a[i] = b[i];
+        b[i] = tmp;
+    }
+}
+
+template <int N, typename S>
+static void copy(S out[N], const S in[N])
+{
+    for (int i=0; i<N; ++i)
+        out[i] = in[i];
+}
 
 template <int N, typename S>
 S liegroups::max_norm(const S x[N])
@@ -63,13 +89,81 @@ void liegroups::mat_mult(S ab[M*N], const S a[M*C], const S b[C*N])
 }
 
 template <typename S>
-static void swap(S *a, S *b, int n)
+static bool invert2(S invm[2*2], const S m[2*2], S *detm)
 {
-    for (int i=0; i<n; ++i) {
-        S tmp = a[i];
-        a[i] = b[i];
-        b[i] = tmp;
+    const S det = m[0]*m[3] - m[1]*m[2];
+    if (detm)
+        *detm = det;
+    if (det == (S)0)
+        return false;
+
+    const S inv_det = (S)1 / det;
+    invm[0] =  inv_det * m[3];
+    invm[1] = -inv_det * m[1];
+    invm[2] = -inv_det * m[2];
+    invm[3] =  inv_det * m[0];
+    return true;
+}
+
+template <typename S>
+static bool invert3(S invm[3*3], const S m[3*3], S *detm)
+{
+    const S m00 = m[4]*m[8] - m[5]*m[7];
+    const S m10 = m[1]*m[8] - m[2]*m[7];
+    const S m20 = m[1]*m[5] - m[2]*m[4];
+
+    const S det = m[0]*m00 - m[3]*m10 + m[6]*m20;
+    if (detm)
+        *detm = det;
+    if (det == (S)0)
+        return false;
+
+    const S inv_det = (S)1 / det;
+    const S m01 = m[3]*m[8] - m[5]*m[6];
+    const S m02 = m[3]*m[7] - m[4]*m[6];
+    const S m11 = m[0]*m[8] - m[2]*m[6];
+    const S m12 = m[0]*m[7] - m[1]*m[6];
+    const S m21 = m[0]*m[5] - m[2]*m[3];
+    const S m22 = m[0]*m[4] - m[1]*m[3];
+
+    invm[0] =  inv_det * m00;
+    invm[1] = -inv_det * m10;
+    invm[2] =  inv_det * m20;
+    invm[3] = -inv_det * m01;
+    invm[4] =  inv_det * m11;
+    invm[5] = -inv_det * m21;
+    invm[6] =  inv_det * m02;
+    invm[7] = -inv_det * m12;
+    invm[8] =  inv_det * m22;
+    return true;
+}
+
+namespace liegroups {
+
+    template <>
+    bool invert<2,float>(float invm[2*2], const float m[2*2], float *detm)
+    {
+        return invert2(invm, m, detm);
     }
+
+    template <>
+    bool invert<2,double>(double invm[2*2], const double m[2*2], double *detm)
+    {
+        return invert2(invm, m, detm);
+    }
+    
+    template <>
+    bool invert<3,float>(float invm[3*3], const float m[3*3], float *detm)
+    {
+        return invert3(invm, m, detm);
+    }
+
+    template <>
+    bool invert<3,double>(double invm[3*3], const double m[3*3], double *detm)
+    {
+        return invert3(invm, m, detm);
+    }
+
 }
 
 template <int N, int C, typename S>
@@ -207,15 +301,92 @@ bool liegroups::expm(S em[N*N], const S m[N*N])
         out = p;
     }
 
-    for (int i=0; i<N*N; ++i)
-        em[i] = in[i];
+    copy<N*N>(em, in);
     return true;
 }
 
 
 template <int N, typename S>
+bool liegroups::sqrtm(S s[N*N], const S m[N*N])
+{
+    S y[N*N], z[N*N], x[N*N];
+
+    for (int i=0; i<N*N; ++i)
+        y[i] = (S)0.5*m[i];
+
+    if (!invert<N>(z, m))
+        return false;
+
+    for (int i=0; i<N*N; ++i)
+        z[i] *= (S)0.5;
+        
+    for (int i=0; i<N; ++i) {
+        y[i*(N+1)] += (S)0.5;
+        z[i*(N+1)] += (S)0.5;
+    }
+
+    for (int pass=0; pass<20; ++pass) {
+        if (!invert<N>(s, z) || !invert<N>(x, y))
+            return false;
+
+        for (int i=0; i<N*N; ++i) {
+            y[i] = (S)0.5*(y[i] + s[i]);
+            z[i] = (S)0.5*(z[i] + x[i]);
+        }
+
+        // Check for convergence
+        S yz[N*N];
+        mat_mult<N,N,N>(yz, y, z);
+        for (int i=0; i<N; ++i)
+            yz[i*(N+1)] -= (S)1;
+        
+        if (max_norm<N*N>(yz) < Constants<S>::epsilon() * (S)10) {
+            copy<N*N>(s, y);
+            return true;
+        }
+    }
+    return false;
+}
+
+template <int N, typename S>
 bool liegroups::logm(S lm[N*N], const S m[N*N])
 {
+    S tmp1[N*N], tmp2[N*N];
+    S *x = tmp1, *y = tmp2;
+    copy<N*N>(x, m);
+
+    int s = 0;
+    S factor = (S)1;
+    const int MAX_PASSES = 20;
+    int pass;
+    for (pass=0; pass<MAX_PASSES; ++pass) {        
+        S mv = 0;
+        for (int i=0; i<N; ++i) {
+            for (int j=0; j<N; ++j) {
+                S xi = x[i*N+j];
+                if (i == j)
+                    xi -= (S)1;
+                S axi = liegroups::abs(xi);
+                mv = liegroups::max(axi, mv);
+            }
+        }
+        std::cout << "mv = " << mv << std::endl;
+        if (mv < (S)0.5)
+            break;
+        
+        if (!sqrtm<N>(y, x))
+            return false;
+        swap(x, y);
+
+        ++s;
+        factor *= (S)2;
+    }
+    if (pass == MAX_PASSES)
+        return false;
+
+    for (int i=0; i<N; ++i)
+        x[i*(N+1)] -= (S)1;
+
     static const S a[7] = {(S)1, (S)3, S(535.0/156),
                            S(145.0/78), S(1377.0/2860), S(223.0/4290),
                            S(11.0/7280)};
@@ -223,21 +394,40 @@ bool liegroups::logm(S lm[N*N], const S m[N*N])
     static const S b[7] = {S(7.0/2), S(63.0/13), S(175.0/52),
                            S(175.0/143), S(63.0/286), S(7.0/429),
                            S(1.0/3432)};
-
-    S tmp1[N*N], tmp2[N*N];
-    S *x = tmp1, *y = tmp2;
-    for (int i=0; i<N*N; ++i)
-        x[i] = m[i];
-
-    int s = 0;
-    S factor = (S)1;
-    while (max_norm<N*N>(x) > (S)0.5) {
-        if (s == 0) {
-            
-        }
-        ++s;
-        factor *= (S)2;
         
-
+    S A[N*N], B[N*N];
+    {
+        // A0 = x
+        copy<N*N>(A, x);
+        // B0 = b[0]*x + I
+        for (int i=0; i<N*N; ++i)
+            B[i] = x[i]*b[0];
+        for (int i=0; i<N; ++i)
+            B[i*(N+1)] += (S)1;
     }
+
+    // y = x^(term+1)
+    mat_mult<N,N,N>(y, x, x);
+    S *z = lm;
+    
+    for (int term=1; term<7; ++term) {
+        S fa = a[term];
+        S fb = b[term];
+        for (int i=0; i<N*N; ++i) {
+            A[i] += y[i]*fa;
+            B[i] += y[i]*fb;
+        }
+        if (term<6) {
+            mat_mult<N,N,N>(z, y, x);
+            swap(y, z);
+        }
+    }
+
+    if (!solve<N,N>(B,A))
+        return false;
+
+    for (int i=0; i<N*N; ++i)
+        lm[i] = factor * A[i];
+    
+    return true;
 }

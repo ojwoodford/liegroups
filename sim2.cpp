@@ -93,20 +93,14 @@ static void compute_V(S &a, S &b, S theta, S lambda, S ct, S st, S exp_lambda)
     S lambda_sq = lambda * lambda;
     S z = theta_sq + lambda_sq;
 
-    if (z < liegroups::Constants<S>::sqrt_epsilon()) {
-        if (z == (S)0) {
-            a = (S)1;
-            b = (S)0;
-        } else {
-            a = (S)1 - (S)0.5*lambda * lambda_sq / z;
-            b = (S)0.5 * theta;
-        }
+    if (z < liegroups::Constants<S>::sqrt_epsilon() *(S)100) {
+        a = (S)1 - (S)0.5*lambda + (lambda_sq - theta_sq)*(S)(1.0/6);
+        b = theta*((S)0.5 - lambda*(S)(1.0/6));
     } else {
         S inv_s = (S)1 / exp_lambda;
-        S d = ct - inv_s;
         S inv_z = (S)1 / z;
-        a = inv_z*(lambda*d + theta*st);
-        b = inv_z*(lambda*st - theta*d);
+        a = inv_z*(lambda*ct + theta*st - lambda*inv_s);
+        b = inv_z*(lambda*st - theta*ct + theta*inv_s);
     }
 }
 
@@ -144,13 +138,13 @@ void liegroups::log(S x[4], const Sim2<S> &X)
 {
     x[3] = liegroups::ln(X.scale);
     x[2] = liegroups::SO2_log(X.rigid.r[0], X.rigid.r[1]);
-    S a, b;
     
+    S a, b;    
     compute_V(a, b, x[2], x[3], X.rigid.r[0], -X.rigid.r[1], X.scale);
-    S det = a*a + b*b;
-    S inv_det = (S)1 / det;
-    x[0] = inv_det * (a*X.rigid.t[0] + b*X.rigid.t[1]);
-    x[1] = inv_det * (a*X.rigid.t[1] - b*X.rigid.t[0]);    
+    
+    S inv_det = (S)1 / (a*a + b*b);
+    x[0] = inv_det*(a*X.rigid.t[0] + b*X.rigid.t[1]);
+    x[1] = inv_det*(a*X.rigid.t[1] - b*X.rigid.t[0]);
 }
 
 template void liegroups::log<float>(float[4], const Sim2<float> &);

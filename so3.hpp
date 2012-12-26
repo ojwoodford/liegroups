@@ -1,0 +1,59 @@
+#pragma once
+
+namespace liegroups {
+
+    template <class S>
+    struct SO3
+    {
+        S R[3*3];
+
+        static const SO3<S> identity;
+        enum { DoF = 3, Dim = 3 };
+        typedef S Scalar;
+    };
+
+    template <class S>
+    void multiply(SO3<S> &ab, const SO3<S> &a, const SO3<S> &b);
+
+    template <class S>
+    SO3<S> operator*(const SO3<S> &a, const SO3<S> &b)
+    {
+        SO3<S> ab;
+        multiply(ab, a, b);
+        return ab;
+    }
+    
+    template <class S>
+    void multiply_a_binv(SO3<S> &abinv, const SO3<S> &a, const SO3<S> &b);    
+    
+    template <class S>
+    void invert(SO3<S> &g);
+
+    template <class S>
+    SO3<S> inverse(const SO3<S> &g);
+
+    template <class S>
+    void rectify(SO3<S> &g);
+    
+    template <class S, class X>
+    void transform_point(X y[3], const SO3<S> &g, const X x[3]);
+
+    template <class S, class X>
+    void transform_point_by_inverse(X y[3], const SO3<S> &g, const X x[3]);
+    
+    template <class S>
+    void exp(SO3<S> &X, const S x[3]);
+
+    template <class S>
+    void log(S x[3], const SO3<S> &X);
+    
+    template <class S>
+    void adjoint(S adj[3*3], const SO3<S> &g);
+    
+    template <class S>
+    void adjoint_multiply(S y[3], const SO3<S> &g, const S x[3]);
+
+    template <class S>
+    void adjoint_T_multiply(S y[3], const SO3<S> &g, const S x[3]);
+
+}

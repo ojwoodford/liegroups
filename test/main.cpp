@@ -4,6 +4,10 @@
 #include <liegroups/se2_io.hpp>
 #include <liegroups/sim2.hpp>
 #include <liegroups/sim2_io.hpp>
+#include <liegroups/so3.hpp>
+#include <liegroups/so3_io.hpp>
+#include <liegroups/se3.hpp>
+#include <liegroups/se3_io.hpp>
 #include <iostream>
 #include <cstdlib>
 
@@ -101,6 +105,12 @@ void test_group()
         S log_exp[N] = { (S)-99999999 };
         log(log_exp, g);
         S err = max_abs_diff(log_exp, log_g, N);
+        // if (err >= max_err*0.9) {
+        //     cerr.precision(19);
+        //     print_vec(cerr, log_g, N) << endl;
+        //     print_vec(cerr, log_exp, N) << endl;
+        //     cerr << g << endl;
+        // }
         CHECK_ERROR<G>(err, max_err, "log");
     }
 
@@ -119,7 +129,7 @@ void test_group()
     {
         S adj[N*N];
         adjoint(adj, g);
-        //print_mat(out, adj, N, N) << endl;
+        //print_mat(cerr, adj, N, N) << endl;
 
         S adj_v[N], adj_v_ref[N], v[N];
         random_vec<N>(v);
@@ -187,5 +197,9 @@ int main()
         test_group<SE2<double> >();
         test_group<Sim2<float> >();
         test_group<Sim2<double> >();
+        test_group<SO3<float> >();
+        test_group<SO3<double> >();
+        test_group<SE3<float> >();
+        test_group<SE3<double> >();
     }
 }

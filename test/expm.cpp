@@ -63,12 +63,15 @@ bool invert(S invm[N*N], const S m[N*N], S &detm)
     return true;
 }
 
-int main()
+int main(int argc, char *argv[])
 {
-    typedef float S;
+    if (argc > 1)
+        std::srand(atoi(argv[1]));
+    typedef double S;
+    std::cout.precision(19);
     
     S w[3];
-    random_vec<3>(w, (S)10);
+    random_vec<3>(w, (S)0.1);
     S wx[3*3] = {0, w[0], w[1], -w[0], 0, w[2], -w[1], -w[2], 0};
     S exp_wx[3*3];
     liegroups::expm<3>(exp_wx, wx);
@@ -76,6 +79,17 @@ int main()
     print_mat(std::cout, wx, 3, 3) << std::endl;
     print_mat(std::cout, exp_wx, 3, 3) << std::endl;
 
+    S sm[3*3];
+    liegroups::sqrtm<3>(sm, exp_wx);
+    print_mat(std::cout, sm, 3, 3) << std::endl;
+
+    S lnm[3*3];
+    if (!liegroups::logm<3>(lnm, exp_wx)) {
+        std::cerr << "logm failed" << std::endl;
+        return 1;
+    }
+    print_mat(std::cout, lnm, 3, 3) << std::endl;
+    
     S invm[3*3];
     S detm;
     invert<3>(invm, exp_wx, detm);

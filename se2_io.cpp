@@ -11,7 +11,7 @@ std::ostream &liegroups::operator<<(std::ostream &out, const SE2<S> &g)
     out.width(w); out << g.t[0] << std::endl;
     out.width(w); out << g.r[1];
     out.width(w); out << g.r[0];
-    out.width(w); out << g.t[1];
+    out.width(w); out << g.t[1] << std::endl;
     return out;
 }
 
