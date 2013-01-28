@@ -95,7 +95,7 @@ void liegroups::rectify(SO3<S> &g)
     g.R[3] -= xy*g.R[0];
     g.R[4] -= xy*g.R[1];
     g.R[5] -= xy*g.R[2];
-    normalize3(&g.R[1]);
+    normalize3(&g.R[3]);
 
     g.R[6] = g.R[1]*g.R[5] - g.R[2]*g.R[4];
     g.R[7] = g.R[2]*g.R[3] - g.R[0]*g.R[5];
@@ -246,3 +246,101 @@ void liegroups::adjoint_T_multiply(S y[3], const SO3<S> &g, const S x[3])
 
 template void liegroups::adjoint_T_multiply<float>(float[3], const SO3<float> &, const float[3]);
 template void liegroups::adjoint_T_multiply<double>(double[3], const SO3<double> &, const double[3]);
+
+template <class S>
+static void unit_perp3(S p[3], const S v[3])
+{
+    const S v00 = v[0]*v[0], v11 = v[1]*v[1], v22 = v[2]*v[2];
+    const S v01 = v[0]*v[1], v02 = v[0]*v[2], v12 = v[1]*v[2];
+    if (v00 < v11) {
+        if (v00 < v22) {
+            p[0] = (S)1 - v00;
+            p[1] = -v01;
+            p[2] = -v02;
+        } else {
+            p[0] = -v02;
+            p[1] = -v12;
+            p[2] = (S)1 - v22;
+        }
+    } else if (v00 < v22) {
+        if (v00 < v11) {
+            p[0] = (S)1 - v00;
+            p[1] = -v01;
+            p[2] = -v02;
+        } else {
+            p[0] = -v01;
+            p[1] = (S)1 - v11;
+            p[2] = -v12;
+        }
+    } else if (v11 < v22) {
+            p[0] = -v01;
+            p[1] = (S)1 - v11;
+            p[2] = -v12;
+    } else {
+        p[0] = -v02;
+        p[1] = -v12;
+        p[2] = (S)1 - v22;
+    }
+    
+    normalize3(p);
+}
+
+template <class S>
+bool liegroups::compute_rotation_between_unit_vectors(SO3<S> &R, const S a[3], const S b[3])
+{
+    const S cos_theta = dot3(a,b);
+
+    if (cos_theta < (S)-0.9) {
+        const S neg_a[3] = {-a[0], -a[1], -a[2] };
+        SO3<S> neg_a_to_b;
+        if (!compute_rotation_between_unit_vectors(neg_a_to_b, neg_a, b))
+            return false;
+
+        SO3<S> a_to_neg_a;
+        S p[3];
+        unit_perp3(p, a);
+        const S C = (S)2;
+        const S Cp00 = C*p[0]*p[0], Cp11 = C*p[1]*p[1], Cp22 = C*p[2]*p[2];
+        const S Cp01 = C*p[0]*p[1], Cp02 = C*p[0]*p[2], Cp12 = C*p[1]*p[2];
+        a_to_neg_a.R[0] = (S)1 - (Cp11 + Cp22);
+        a_to_neg_a.R[4] = (S)1 - (Cp00 + Cp22);
+        a_to_neg_a.R[8] = (S)1 - (Cp00 + Cp11);
+        a_to_neg_a.R[1] = Cp01;
+        a_to_neg_a.R[2] = Cp02;
+        a_to_neg_a.R[3] = Cp01;
+        a_to_neg_a.R[5] = Cp12;
+        a_to_neg_a.R[6] = Cp02;
+        a_to_neg_a.R[7] = Cp12;
+
+        multiply(R, neg_a_to_b, a_to_neg_a);
+        return true;
+    }
+
+    const S C = (S)1 / ((S)1 + cos_theta);
+    
+    const S w[3] = {
+        a[1]*b[2] - a[2]*b[1],
+        a[2]*b[0] - a[0]*b[2],
+        a[0]*b[1] - a[1]*b[0]
+    };
+        
+    const S w00 = w[0]*w[0];
+    const S w11 = w[1]*w[1];
+    const S w22 = w[2]*w[2];
+    R.R[0] = (S)1 - C*(w11 + w22);
+    R.R[4] = (S)1 - C*(w00 + w22);
+    R.R[8] = (S)1 - C*(w00 + w11);
+    const S Cw01 = C*w[0]*w[1];
+    const S Cw02 = C*w[0]*w[2];
+    const S Cw12 = C*w[1]*w[2];
+    R.R[1] = Cw01 - w[2];
+    R.R[2] = Cw02 + w[1];
+    R.R[3] = Cw01 + w[2];
+    R.R[5] = Cw12 - w[0];
+    R.R[6] = Cw02 - w[1];
+    R.R[7] = Cw12 + w[0];
+    return true;
+}
+
+template bool liegroups::compute_rotation_between_unit_vectors<float>(SO3<float> &, const float[3], const float[3]);
+template bool liegroups::compute_rotation_between_unit_vectors<double>(SO3<double> &, const double[3], const double[3]);

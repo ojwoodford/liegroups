@@ -56,4 +56,8 @@ namespace liegroups {
     template <class S>
     void adjoint_T_multiply(S y[3], const SO3<S> &g, const S x[3]);
 
+    // Expects |a| == |b| == 1
+    // Returns true on success
+    template <class S>
+    bool compute_rotation_between_unit_vectors(SO3<S> &R, const S a[3], const S b[3]);
 }
