@@ -9,6 +9,8 @@ OBJS=   se2.o \
 	so3_io.o \
 	se3.o \
 	se3_io.o \
+	sl3.o \
+	sl3_io.o \
 	matrix.o
 
 all: libliegroups.a
