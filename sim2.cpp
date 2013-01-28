@@ -93,7 +93,7 @@ static void compute_V(S &a, S &b, S theta, S lambda, S ct, S st, S exp_lambda)
     S lambda_sq = lambda * lambda;
     S z = theta_sq + lambda_sq;
 
-    if (z < liegroups::Constants<S>::sqrt_epsilon() *(S)100) {
+    if (z < liegroups::Constants<S>::sqrt_epsilon()) {
         a = (S)1 - (S)0.5*lambda + (lambda_sq - theta_sq)*(S)(1.0/6);
         b = theta*((S)0.5 - lambda*(S)(1.0/6));
     } else {
