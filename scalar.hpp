@@ -15,6 +15,7 @@ namespace liegroups {
     template <class S> S max(S x, S y) { return x < y ? y : x; }
     
     template <class S> S sqrt(S x) { return ScalarFunctions<S>::sqrt(x); }
+    template <class S> S pow(S x, S y) { return ScalarFunctions<S>::pow(x, y); }
     template <class S> S exp(S x) { return ScalarFunctions<S>::exp(x); }
     template <class S> S ln(S x) { return ScalarFunctions<S>::ln(x); }
     template <class S> S sin(S x) { return ScalarFunctions<S>::sin(x); }
@@ -43,6 +44,7 @@ namespace liegroups {
     struct ScalarFunctions<float>
     {
         static float sqrt(float x) { return ::sqrtf(x); }
+        static float pow(float x, float y) { return ::powf(x,y); }
         static float exp(float x) { return ::expf(x); }
         static float ln(float x) { return ::logf(x); }
         static float sin(float x) { return ::sinf(x); }
@@ -58,6 +60,7 @@ namespace liegroups {
     struct ScalarFunctions<double>
     {
         static double sqrt(double x) { return ::sqrt(x); }
+        static double pow(double x, double y) { return ::pow(x,y); }
         static double exp(double x) { return ::exp(x); }
         static double ln(double x) { return ::log(x); }
         static double sin(double x) { return ::sin(x); }

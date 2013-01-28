@@ -30,12 +30,25 @@ static void copy(S out[N], const S in[N])
 }
 
 template <int N, typename S>
-S liegroups::max_norm(const S x[N])
+static S max_abs(const S x[N])
 {
     S mv = 0;
     for (int i=0; i<N; ++i) {
         S axi = liegroups::abs(x[i]);
         mv = liegroups::max(axi, mv);
+    }
+    return mv;
+}
+
+template <int N, typename S>
+static S max_row_norm(const S x[N*N])
+{
+    S mv = 0;
+    for (int i=0; i<N; ++i) {
+        S sum = 0;
+        for (int j=0; j<N; ++j)
+            sum += liegroups::abs(x[i*N+j]);        
+        mv = liegroups::max(sum, mv);
     }
     return mv;
 }
@@ -166,9 +179,12 @@ namespace liegroups {
 
 }
 
-template <int N, int C, typename S>
-bool liegroups::solve(S A[N*N], S B[N*C])
+template <int N, typename S>
+bool liegroups::LU_decompose(S A[N*N], int index[N])
 {
+    for (int i=0; i<N; ++i)
+        index[i] = i;
+    
     for (int i=0; i<N; ++i) {
         // Find pivot
         int pivot = i;
@@ -182,72 +198,200 @@ bool liegroups::solve(S A[N*N], S B[N*C])
         }
         if (pv == (S)0)
             return false;
+
+        S *pi = &A[i*N];
         
         // Swap rows
         if (pivot != i) {
-            swap(&A[i*(N+1)], &A[pivot*N + i], N-i);
-            swap(&B[i*C], &B[pivot*C], C);
+            swap(index[i], index[pivot]);
+            swap(pi, &A[pivot*N], N);
         }
 
-        const S inv_pivot = (S)1 / A[i*(N+1)];
+        const S inv_pivot = (S)1 / pi[i];
 
-        // B
-        {
-            // Scale this row of B
-            S *pb = &B[i*C];        
-            for (int j=0; j<C; ++j)
-                pb[j] *= inv_pivot;
-
-            // Subtract from other rows of B
-            for (int r=0; r<N; ++r) {
-                if (r == i)
-                    continue;
-                S* pr = &B[r*C];
-                const S f = A[r*N + i];
-                for (int j=0; j<C; ++j)
-                    pr[j] -= f * pb[j];                
-            }
-        }
-
-        // A
-        {
-            // Scale this row of A
-            S *pa = &A[i*N];
-            //pa[i] = (S)1;
-            for (int j=i+1; j<N; ++j)
-                pa[j] *= inv_pivot;
+        // Scale this row of A
+        pi[i] = inv_pivot;
+        for (int j=i+1; j<N; ++j)
+            pi[j] *= inv_pivot;
         
-            // Subtract from other rows of A
-            for (int r=0; r<N; ++r) {
-                if (r == i)
-                    continue;
-                S *pr = &A[r*N];
-                const S f = pr[i];
-                //pr[i] = 0;
-                for (int j=i+1; j<N; ++j)
-                    pr[j] -= f * pa[j];
-            }
-        }
+        // Subtract from other rows of A
+        for (int r=i+1; r<N; ++r) { 
+            S *pr = &A[r*N];
+            const S f = pr[i];
+            for (int j=i+1; j<N; ++j)
+                pr[j] -= f * pi[j];
+        }        
     }
     return true;
 }
 
+// b and x have stride C
+template <int N, int C, typename S>
+void liegroups::LU_inverse_times_vec(S *x, const S LU[N*N], const int index[N], const S *b)
+{
+    S y[N];
+    for (int i=0; i<N; ++i) {
+        const S *Li = &LU[i*N];
+        S yi = b[index[i]*C];
+        for (int j=0; j<i; ++j)
+            yi -= Li[j] * y[j];
+        y[i] = Li[i] * yi;        
+    }
+    for (int i=N-1; i>=0; --i) {
+        const S *Ui = &LU[i*N];
+        S xi = y[i];
+        for (int j=i+1; j<N; ++j)
+            xi -= Ui[j]*x[j*C];
+        x[i*C] = xi;
+    }
+}
+
+template <typename S>
+static S lg(S x)
+{
+    const S inv_ln2 = (S)1.44269504088896;
+    return liegroups::ln(x) * inv_ln2;
+}
+
+template <int N, typename S>
+static bool balance(const S m[N*N],
+                    S d[N], S inv_d[N])
+{
+    S bm[N*N];
+    for (int i=0; i<N*N; ++i)
+        bm[i] = liegroups::abs(m[i]);
+
+    for (int i=0; i<N; ++i)
+        inv_d[i] = d[i] = (S)1;
+
+    bool changed = false;
+    
+    for (int pass=0; pass < N*2; ++pass) {
+        S sc[N], sr[N];
+        for (int i=0; i<N; ++i)
+            sc[i] = sr[i] = (S)0;
+        
+        for (int i=0; i<N; ++i) {
+            for (int j=0; j<N; ++j) {
+                sc[i] += bm[j*N+i];
+                sr[i] += bm[i*N+j];                
+            }
+        }
+
+        S max_a = (S)2, max_b = (S)1;
+        int argmax = -1;
+        for (int i=0; i<N; ++i) {
+            S a = sr[i], b = sc[i];
+            if (a == (S)0 || b == (S)0)
+                continue;
+            if (a < b) {
+                if (max_a < max_b) {
+                    if (a * max_b > max_a * b)
+                        continue;
+                } else {
+                    if (a * max_a > b * max_b)
+                        continue;
+                }
+            } else {
+                if (max_a < max_b) {
+                    if (a * max_a < max_b * b)
+                        continue;
+                } else if (a * max_b < b * max_a)
+                    continue;
+            }
+            max_a = a;
+            max_b = b;
+            argmax = i;
+        }
+
+        if (argmax == -1)
+            break;
+
+        S r = liegroups::sqrt(max_a / max_b);
+        S inv_r = (S) 1 / r;
+        
+        for (int i=0; i<N; ++i) {
+            bm[argmax*N + i] *= inv_r;
+            bm[i*N + argmax] *= r;
+        }
+
+        d[argmax] *= r;
+        inv_d[argmax] *= inv_r;
+        changed = true;
+    }
+
+    if (changed) {
+        S det_d = d[0];
+        for (int i=1; i<N; ++i)
+            det_d *= d[i];
+        S scale = liegroups::pow(det_d, (S)1/(S)N);
+        S inv_scale = 1 / scale; 
+        for (int i=1; i<N; ++i) {
+            d[i] *= inv_scale;
+            inv_d[i] *= scale;
+        }
+    }
+    // std::cerr << "d = [ ";
+    // for (int i=0; i<N; ++i) {
+    //     std::cerr.width(12);
+    //     std::cerr << d[i] << " ";
+    // }
+    // std::cerr << std::endl;
+
+    return changed;
+}
+
+
 template <int N, typename S>
 bool liegroups::expm(S em[N*N], const S m[N*N])
 {
-    S scale = max_norm<N*N>(m);
-    S factor = (S)1;
-    int s = 0;
-    if (scale > (S)0.5) {
-        const S inv_ln2 = (S)1.44269504089;
-        S lg_scale = liegroups::ln(scale) * inv_ln2;
-        s = (int)lg_scale + 1;
-        factor = (S)1 / (S)(1 << s);
-    }
-
     S sm[N*N];
-    for (int i=0; i<N*N; ++i)
-        sm[i] = m[i] * factor;
+    copy<N*N>(sm, m);
+    
+    S trace = m[0];
+    for (int i=1; i<N; ++i)
+        trace += m[i*(N+1)];
+    S mu = trace * ((S)1 / (S)N);
+    for (int i=0; i<N; ++i)
+        sm[i*(N+1)] -= mu;
+    
+    S scale = max_row_norm<N>(sm);
+    S pre_scale = scale;
+    bool balanced = false;
+    S d[N], inv_d[N];
+    int s = 0;
+    if (scale > (S)1.9) {
+        balanced = balance<N>(sm, d, inv_d);        
+        if (balanced) {
+            for (int i=0,k=0; i<N; ++i) {
+                for (int j=0; j<N; ++j, ++k) {
+                    sm[k] *= inv_d[i] * d[j];
+                }
+            }
+            scale = max_row_norm<N>(sm);
+            if (scale > pre_scale) {
+                copy<N*N>(sm, m);
+                for (int i=0; i<N; ++i)
+                    sm[i*(N+1)] -= mu;
+                scale = pre_scale;
+                balanced = false;
+                std::cerr << "balancing failed" << std::endl;
+            }
+        }
+        
+        if (scale > (S)1.9) {
+            S lg_scale = lg(scale);
+            s = (int)lg_scale;
+            if (s > 0) {
+                S factor = liegroups::pow((S)2, (S)-s);                
+                for (int i=0; i<N*N; ++i)
+                    sm[i] *= factor;
+            }
+        }        
+        std::cerr << "s = " << s << std::endl;
+    } else {
+        std::cerr << "no scale " << std::endl;
+    }
     
     S *const sm2 = em;
     mat_mult<N,N,N>(sm2, sm, sm);
@@ -289,64 +433,178 @@ bool liegroups::expm(S em[N*N], const S m[N*N])
         tmp[i] = A[i] + B[i];
         A[i] -= B[i];
     }
-    if (!solve<N,N>(A, tmp))
+    int index[N];
+    if (!LU_decompose<N>(A, index))
         return false;
 
+    LU_inverse_times_mat<N,N>(tmp, A, index, tmp);
+    
     // Square s times
     S *in = tmp, *out = A;
     for (int i=0; i<s; ++i) {        
         mat_mult<N,N,N>(out, in, in);
-        S *p = in;
-        in = out;
-        out = p;
+        swap(in, out);
     }
 
-    copy<N*N>(em, in);
+    S exp_mu = liegroups::exp(mu);
+    
+    if (balanced) {
+        // Undo balancing
+        for (int i=0,k=0; i<N; ++i) {
+            for (int j=0; j<N; ++j, ++k) {
+                em[k] = exp_mu * (in[k] * inv_d[j] * d[i]);
+            }
+        }
+        std::cerr << pre_scale << " --> " << scale << std::endl;        
+    } else {
+        for (int i=0; i<N*N; ++i)
+            em[i] = exp_mu * in[i];
+    }
+    
     return true;
 }
 
+template <int N, typename S>
+static bool LU_invert(S invm[N*N], const S m[N*N], S* det = 0)
+{
+    S lu[N*N];
+    copy<N*N>(lu, m);
+    int index[N];
+    if (!liegroups::LU_decompose<N>(lu, index))
+        return false;
+
+    if (det) {
+        S d = lu[0];
+        for (int i=1; i<N; ++i)
+            d *= lu[i*(N+1)];
+        
+        *det = (S)1 / d;
+    }
+
+    for (int i=0,k=0; i<N-1; ++i) {
+        invm[k++] = (S)1;
+        for (int j=0; j<N; ++j)
+            invm[k++] = (S)0;        
+    }
+    invm[N*N-1] = (S)1;
+
+    liegroups::LU_inverse_times_mat<N,N>(invm, lu, index, invm);
+    return true;
+}
 
 template <int N, typename S>
-bool liegroups::sqrtm(S s[N*N], const S m[N*N])
+bool liegroups::sqrtm(S s[N*N], const S m[N*N], const S tol)
 {
     S y[N*N], z[N*N], x[N*N];
 
-    for (int i=0; i<N*N; ++i)
-        y[i] = (S)0.5*m[i];
-
-    if (!invert<N>(z, m))
-        return false;
-
-    for (int i=0; i<N*N; ++i)
-        z[i] *= (S)0.5;
-        
-    for (int i=0; i<N; ++i) {
-        y[i*(N+1)] += (S)0.5;
-        z[i*(N+1)] += (S)0.5;
-    }
-
-    for (int pass=0; pass<20; ++pass) {
-        if (!invert<N>(s, z) || !invert<N>(x, y))
+    const S lambda_p = S(-1) / (S)(2*N);
+    const S mag = max_abs<N*N>(m);
+    //std::cerr << "mag = " << mag << std::endl;
+    // y1, z1
+    {
+        S detY;
+        if (!invert<N>(z, m, &detY))
             return false;
 
+        const S lambda = liegroups::pow(liegroups::abs(detY), lambda_p);
+        const S inv_lambda = (S)1 / lambda;
+        const S a = (S)0.5*lambda;
+        const S b = (S)0.5*inv_lambda;
+        
+        for (int i=0; i<N*N; ++i)
+            y[i] = a*m[i];
+
+        for (int i=0; i<N*N; ++i)
+            z[i] *= b;
+        
+        for (int i=0; i<N; ++i) {
+            y[i*(N+1)] += b;
+            z[i*(N+1)] += a;
+        }
+    }
+    
+    S last_err = (S)0;
+    
+    for (int pass=0; pass<20; ++pass) {
+        S detY, detZ;
+        if (!invert<N>(s, z, &detZ) || !invert<N>(x, y, &detY))
+            return false;
+
+        const S lambda = liegroups::pow(liegroups::abs(detY * detZ), lambda_p);
+        const S inv_lambda = (S)1 / lambda;
+        const S a = (S)0.5*lambda;
+        const S b = (S)0.5*inv_lambda;
+        
         for (int i=0; i<N*N; ++i) {
-            y[i] = (S)0.5*(y[i] + s[i]);
-            z[i] = (S)0.5*(z[i] + x[i]);
+            y[i] = a*y[i] + b*s[i];
+            z[i] = a*z[i] + b*x[i];
         }
 
         // Check for convergence
-        S yz[N*N];
-        mat_mult<N,N,N>(yz, y, z);
-        for (int i=0; i<N; ++i)
-            yz[i*(N+1)] -= (S)1;
-        
-        if (max_norm<N*N>(yz) < Constants<S>::epsilon() * (S)10) {
+        S yy[N*N];
+        mat_mult<N,N,N>(yy, y, y);
+        for (int i=0; i<N*N; ++i)
+            yy[i] -= m[i];
+
+        S err = max_abs<N*N>(yy);
+        if (pass && err >= last_err)
+            return false;
+        //std::cerr << pass << "\t" << err << std::endl;
+        if (err < tol * mag) {
             copy<N*N>(s, y);
             return true;
         }
+        last_err = err;
     }
+
+    {
+        // Check for convergence
+        S yy[N*N];
+        mat_mult<N,N,N>(yy, y, y);
+        for (int i=0; i<N*N; ++i)
+            yy[i] -= m[i];
+        std::cerr.precision(19);
+        for (int i=0; i<N; ++i) {
+            for (int j=0; j<N; ++j) {
+                std::cerr.width(25);
+                std::cerr << yy[i*N+j];
+            }
+            std::cerr << std::endl;
+        }
+    }
+    std::cerr << "sqrtm failed" << std::endl;
+    
     return false;
 }
+
+template <int N, typename S>
+static bool logm_newton(S lm[N*N], const S m[N*N], int iter)
+{    
+    S nlm[N*N];
+    for (int i=0; i<N*N; ++i)
+        nlm[i] = -lm[i];
+    
+    for (int pass=0; pass<iter; ++pass) {        
+        S enlm[N*N];
+        if (!liegroups::expm<N>(enlm, nlm))
+            return false;
+
+        S d[N*N];
+        liegroups::mat_mult<N,N,N>(d, enlm, m);
+        
+        for (int i=0; i<N; ++i)
+            d[i*(N+1)] -= (S)1;
+        
+        for (int i=0; i<N*N; ++i)
+            nlm[i] -= d[i];
+    }
+    
+    for (int i=0; i<N*N; ++i)
+        lm[i] = -nlm[i];
+    
+    return true;
+}
+
 
 template <int N, typename S>
 bool liegroups::logm(S lm[N*N], const S m[N*N])
@@ -360,21 +618,15 @@ bool liegroups::logm(S lm[N*N], const S m[N*N])
     const int MAX_PASSES = 20;
     int pass;
     for (pass=0; pass<MAX_PASSES; ++pass) {        
-        S mv = 0;
-        for (int i=0; i<N; ++i) {
-            for (int j=0; j<N; ++j) {
-                S xi = x[i*N+j];
-                if (i == j)
-                    xi -= (S)1;
-                S axi = liegroups::abs(xi);
-                mv = liegroups::max(axi, mv);
-            }
-        }
-        std::cout << "mv = " << mv << std::endl;
-        if (mv < (S)0.5)
+        S x_minus_id[N*N];
+        copy<N*N>(x_minus_id, x);
+        for (int i=0; i<N; ++i)
+            x_minus_id[i*(N+1)] -= (S)1;
+        
+        if (max_row_norm<N>(x_minus_id) < (S)0.25)
             break;
         
-        if (!sqrtm<N>(y, x))
+        if (!sqrtm<N>(y, x, Constants<S>::epsilon()*(S)10))
             return false;
         swap(x, y);
 
@@ -387,47 +639,45 @@ bool liegroups::logm(S lm[N*N], const S m[N*N])
     for (int i=0; i<N; ++i)
         x[i*(N+1)] -= (S)1;
 
-    static const S a[7] = {(S)1, (S)3, S(535.0/156),
-                           S(145.0/78), S(1377.0/2860), S(223.0/4290),
-                           S(11.0/7280)};
+    // Partial fraction coefficients for Pade of log(1+x), degree 7
+    static const S alpha[7] = {
+        (S)0.2089795918367347,
+        (S)0.1909150252525595,
+        (S)0.1909150252525595,
+        (S)0.1398526957446383,
+        (S)0.1398526957446383,
+        (S)0.0647424830844349,
+        (S)0.0647424830844349
+    };
     
-    static const S b[7] = {S(7.0/2), S(63.0/13), S(175.0/52),
-                           S(175.0/143), S(63.0/286), S(7.0/429),
-                           S(1.0/3432)};
-        
+    static const S beta[7] = {
+        (S)0.5000000000000000,
+        (S)0.7029225756886985,
+        (S)0.2970774243113014,
+        (S)0.1292344072003028,
+        (S)0.8707655927996972,
+        (S)0.0254460438286208,
+        (S)0.9745539561713792
+    };
+
     S A[N*N], B[N*N];
-    {
-        // A0 = x
-        copy<N*N>(A, x);
-        // B0 = b[0]*x + I
-        for (int i=0; i<N*N; ++i)
-            B[i] = x[i]*b[0];
-        for (int i=0; i<N; ++i)
-            B[i*(N+1)] += (S)1;
-    }
-
-    // y = x^(term+1)
-    mat_mult<N,N,N>(y, x, x);
-    S *z = lm;
-    
-    for (int term=1; term<7; ++term) {
-        S fa = a[term];
-        S fb = b[term];
-        for (int i=0; i<N*N; ++i) {
-            A[i] += y[i]*fa;
-            B[i] += y[i]*fb;
-        }
-        if (term<6) {
-            mat_mult<N,N,N>(z, y, x);
-            swap(y, z);
-        }
-    }
-
-    if (!solve<N,N>(B,A))
-        return false;
+    int index[N];
 
     for (int i=0; i<N*N; ++i)
-        lm[i] = factor * A[i];
+        lm[i] = (S)0;
     
-    return true;
+    for (int term=0; term<7; ++term)
+    {        
+        for (int i=0; i<N*N; ++i)
+            B[i] = beta[term] * x[i];
+        for (int i=0; i<N; ++i)
+            B[i*(N+1)] += (S)1;
+        if (!LU_decompose<N>(B, index))
+            return false;
+        LU_inverse_times_mat<N,N>(A, B, index, x);
+        const S f = factor * alpha[term];
+        for (int i=0; i<N*N; ++i)
+            lm[i] += f * A[i];
+    }
+    return logm_newton<N>(lm, m, 2);
 }
