@@ -1,4 +1,5 @@
 #include <liegroups/matrix.hpp>
+#include <liegroups/scalar.hpp>
 #include <cstdlib>
 #include <iostream>
 
@@ -40,29 +41,6 @@ bool sqrtm(S out[N*N], const S in[N*N])
     return false;
 }
 
-template <int N, typename S>
-bool invert(S invm[N*N], const S m[N*N], S &detm)
-{
-    for (int i=0; i<N*N; ++i)
-        invm[i] = (S)0;
-    
-    for (int i=0; i<N; ++i)
-        invm[i*(N+1)] = (S)1;
-    
-    S mcopy[N*N];
-    for (int i=0; i<N*N; ++i)
-        mcopy[i] = m[i];
-    
-    if (!liegroups::solve<N,N>(mcopy, invm))
-        return false;
-
-    detm = mcopy[0];
-    for (int i=1; i<N; ++i)
-        detm *= mcopy[i*(N+1)];
-
-    return true;
-}
-
 int main(int argc, char *argv[])
 {
     if (argc > 1)
@@ -71,7 +49,7 @@ int main(int argc, char *argv[])
     std::cout.precision(19);
     
     S w[3];
-    random_vec<3>(w, (S)0.1);
+    random_vec<3>(w, (S)10);
     S wx[3*3] = {0, w[0], w[1], -w[0], 0, w[2], -w[1], -w[2], 0};
     S exp_wx[3*3];
     liegroups::expm<3>(exp_wx, wx);
@@ -79,9 +57,37 @@ int main(int argc, char *argv[])
     print_mat(std::cout, wx, 3, 3) << std::endl;
     print_mat(std::cout, exp_wx, 3, 3) << std::endl;
 
+    if (0)
+    {
+        int index[3];
+        if (!liegroups::LU_decompose<3>(exp_wx, index)) {
+            std::cerr << "LU_decompose failed" << std::endl;
+            return 1;
+        }
+        print_mat(std::cout, exp_wx, 3, 3) << std::endl;
+
+
+        for (int i=0; i<3; ++i)
+            std::cerr << index[i] << "\t";
+        std::cerr << std::endl;
+
+        S Ainv[3*3] = {(S)1, (S)0, (S)0,
+                       (S)0, (S)1, (S)0,
+                       (S)0, (S)0, (S)1};
+        
+        liegroups::LU_inverse_times_mat<3,3>(Ainv, exp_wx, index, Ainv);
+        print_mat(std::cout, Ainv, 3, 3) << std::endl;
+        return 0;
+    }
+    
+    
     S sm[3*3];
-    liegroups::sqrtm<3>(sm, exp_wx);
+    const S tol = liegroups::Constants<S>::epsilon() * (S)10;
+    liegroups::sqrtm<3>(sm, exp_wx, tol);    
     print_mat(std::cout, sm, 3, 3) << std::endl;
+    S sm2[3*3];
+    liegroups::mat_mult<3,3,3>(sm2, sm, sm);
+    print_mat(std::cout, sm2, 3, 3) << std::endl;
 
     S lnm[3*3];
     if (!liegroups::logm<3>(lnm, exp_wx)) {
@@ -89,13 +95,10 @@ int main(int argc, char *argv[])
         return 1;
     }
     print_mat(std::cout, lnm, 3, 3) << std::endl;
-    
-    S invm[3*3];
-    S detm;
-    invert<3>(invm, exp_wx, detm);
 
-    std::cout << "det = " << detm << std::endl;
-    
+    liegroups::expm<3>(exp_wx, lnm);
+    print_mat(std::cout, exp_wx, 3, 3) << std::endl;
+        
     return 0;    
 }
          

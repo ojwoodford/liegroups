@@ -151,34 +151,6 @@ static bool invert3(S invm[3*3], const S m[3*3], S *detm)
     return true;
 }
 
-namespace liegroups {
-
-    template <>
-    bool invert<2,float>(float invm[2*2], const float m[2*2], float *detm)
-    {
-        return invert2(invm, m, detm);
-    }
-
-    template <>
-    bool invert<2,double>(double invm[2*2], const double m[2*2], double *detm)
-    {
-        return invert2(invm, m, detm);
-    }
-    
-    template <>
-    bool invert<3,float>(float invm[3*3], const float m[3*3], float *detm)
-    {
-        return invert3(invm, m, detm);
-    }
-
-    template <>
-    bool invert<3,double>(double invm[3*3], const double m[3*3], double *detm)
-    {
-        return invert3(invm, m, detm);
-    }
-
-}
-
 template <int N, typename S>
 bool liegroups::LU_decompose(S A[N*N], int index[N])
 {
