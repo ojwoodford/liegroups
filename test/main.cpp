@@ -90,20 +90,6 @@ void CHECK_ERROR(S err, S max_err, const char *name)
     }
 }
 
-template <typename S>
-void make_h(S h[3*3], const S v[8])
-{
-    h[0] = v[3] + v[4];
-    h[1] = v[5] - v[2];
-    h[2] = v[0];
-    h[3] = v[2] + v[5];
-    h[4] = v[3] - v[4];
-    h[5] = v[1];
-    h[6] = v[6];
-    h[7] = v[7];
-    h[8] = (S)-2 * v[3];
-}
-
 template <class G>
 void test_group()
 {
@@ -185,18 +171,12 @@ void test_group()
         err = max_abs_diff(log_delta, log_identity, N);
         if (err > max_big_err)
         {
-            S h[3*3];
-            make_h(h, v);            
-            
             cerr.precision(19);            
             cerr << g << endl;
             print_vec(cerr,v,N) << endl << endl;
-            print_mat(cerr,h,3,3) << endl;
             cerr << exp_v << endl;
             cerr << delta << endl;
             cerr << conj << endl;
-            make_h(h, adj_v_ref);            
-            print_mat(cerr,h,3,3) << endl;
             cerr << exp_adj_v << endl;
         }
         CHECK_ERROR<G>(err, max_big_err*10, "adj mult");
