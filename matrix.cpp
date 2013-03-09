@@ -40,3 +40,6 @@ template bool liegroups::expm<3,double>(double[], const double[]);
 
 template bool liegroups::logm<3,float>(float[], const float[]);
 template bool liegroups::logm<3,double>(double[], const double[]);
+
+template void liegroups::mat_mult<3,3,3,float>(float *, float const*, float const*);
+template void liegroups::mat_mult<3,3,3,double>(double *, double const*, double const*);
