@@ -12,7 +12,7 @@ namespace liegroups
     bool invert(S invm[N*N], const S m[N*N], S *detm=0);
 
     // A is replaced with L and U (diagonal of U is not stored).
-    // Permution is stored in index.
+    // Permutation is stored in index.
     // Returns true on success.
     template <int N, typename S>
     bool LU_decompose(S A[N*N], int index[N]);
