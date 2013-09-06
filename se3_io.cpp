@@ -5,7 +5,7 @@
 template <class S>
 std::ostream &liegroups::operator<<(std::ostream &out, const SE3<S> &g)
 {
-    const int w = out.precision() + 6;
+    const int w = out.precision() + 8;
     for (int i=0; i<3; ++i) {
         for (int j=0; j<3; ++j) {
             out.width(w);
