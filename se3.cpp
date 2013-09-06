@@ -173,31 +173,22 @@ void liegroups::log(S uw[6], const SE3<S> &X)
     S a, b, c;
     compute_exp_coefs(theta_sq, a, b, c);
 
-    S V[3*3];
-    {
-        V[0] = (S)1 - c*(w11 + w22);
-        V[4] = (S)1 - c*(w00 + w22);
-        V[8] = (S)1 - c*(w00 + w11);
-        
-        S cxy = c*w[0]*w[1], bw2 = b*w[2];        
-        V[1] = cxy - bw2;
-        V[3] = cxy + bw2;
-        S cxz = c*w[0]*w[2], bw1 = b*w[1];
-        V[2] = cxz + bw1;
-        V[6] = cxz - bw1;
-        S cyz = c*w[1]*w[2], bw0 = b*w[0];
-        V[5] = cyz - bw0;
-        V[7] = cyz + bw0;
+    S d;
+    if (theta_sq < Constants<S>::epsilon()*25) {
+        d = (S)(1.0/12) + theta_sq*((S)(1.0/720) + theta_sq*(S)(1.0/30240));
+    } else if (theta_sq > (S)9) {
+        d = (b - (S)0.5*a) / (b*theta_sq);
+    } else {
+        d = (b*(S)0.5 - c) / a;
     }
 
-    if (!invert<3>(V, V)) {
-        uw[0] = uw[1] = uw[2] = (S)0;
-        return;
-    }
+    S wxt[3], wxwxt[3];
+    cross(wxt, w, X.t);
+    cross(wxwxt, w, wxt);
 
-    uw[0] = dot3(&V[0], X.t);
-    uw[1] = dot3(&V[3], X.t);
-    uw[2] = dot3(&V[6], X.t);
+    for (int i=0; i<3; ++i) {
+        uw[i] = (S)X.t[i] - (S)0.5*wxt[i] + d*wxwxt[i];
+    }
 }
 
 template void liegroups::log<float>(float[6], const SE3<float> &);
