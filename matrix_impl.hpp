@@ -347,7 +347,7 @@ bool liegroups::expm(S em[N*N], const S m[N*N])
                     sm[i*(N+1)] -= mu;
                 scale = pre_scale;
                 balanced = false;
-                std::cerr << "balancing failed" << std::endl;
+                //std::cerr << "balancing failed" << std::endl;
             }
         }
         
@@ -360,9 +360,9 @@ bool liegroups::expm(S em[N*N], const S m[N*N])
                     sm[i] *= factor;
             }
         }        
-        std::cerr << "s = " << s << std::endl;
+        //std::cerr << "s = " << s << std::endl;
     } else {
-        std::cerr << "no scale " << std::endl;
+        //std::cerr << "no scale " << std::endl;
     }
     
     S *const sm2 = em;
@@ -427,7 +427,7 @@ bool liegroups::expm(S em[N*N], const S m[N*N])
                 em[k] = exp_mu * (in[k] * inv_d[j] * d[i]);
             }
         }
-        std::cerr << pre_scale << " --> " << scale << std::endl;        
+        //std::cerr << pre_scale << " --> " << scale << std::endl;        
     } else {
         for (int i=0; i<N*N; ++i)
             em[i] = exp_mu * in[i];
