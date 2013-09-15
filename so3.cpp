@@ -176,44 +176,72 @@ template void liegroups::exp<double>(SO3<double> &, const double[3]);
 template <class S>
 void liegroups::log(S w[3], const SO3<S> &X)
 {
-    w[0] = X.R[7] - X.R[5];
-    w[1] = X.R[2] - X.R[6];
-    w[2] = X.R[3] - X.R[1];    
+    w[0] = (S)0.5 * (X.R[7] - X.R[5]);
+    w[1] = (S)0.5 * (X.R[2] - X.R[6]);
+    w[2] = (S)0.5 * (X.R[3] - X.R[1]);
     
     S tr = X.R[0] + X.R[4] + X.R[8];
     S ct = (S)0.5  * (tr - (S)1);
+    S st2 = w[0]*w[0] + w[1]*w[1] + w[2]*w[2];
 
-    if (ct > (S)0.99999) {
-        S rsq = w[0]*w[0] + w[1]*w[1] + w[2]*w[2];
-        S f = (S)0.5 + rsq*((S)(1/48.0) + rsq*(S)(3/1280.0));
+    if (ct > (S)0.999856) {
+        // Small angles
+        // Taylor expansion of f(x) = arcsin(x) / x
+        // x^2 = st2
+        S f = (S)1 + st2*((S)(1/6.0) + st2*((S)(3/40.0) + st2*(S)(5/112.0)));
         w[0] *= f;
         w[1] *= f;
         w[2] *= f;
         return;
     }
 
-    ct = liegroups::max((S)-1, ct);
-    S theta = liegroups::acos(ct);
-    
     if (ct > (S)-0.99) {
-        S st = liegroups::sqrt((S)1 - ct*ct);
-        S factor = (S)0.5 * theta / st;
+        S theta = liegroups::acos(ct);
+        S st = liegroups::sqrt(st2);
+        S factor = theta / st;
         w[0] *= factor;
         w[1] *= factor;
         w[2] *= factor;
         return;
     }
+   
+    // Angles near pi    
+    S st = liegroups::sqrt(st2);    
+    S theta = (S)3.1415926535897932 - liegroups::asin(st);
+    S invB = (theta*theta) / ((S)1 - ct);
 
-    S theta_sq = theta*theta;
-    S inv_B = theta_sq / ((S)1 - ct);
+    S w00 = invB*(X.R[0] - ct);
+    S w11 = invB*(X.R[4] - ct);
+    S w22 = invB*(X.R[8] - ct);
 
-    S a = liegroups::sqrt(liegroups::max((S)0, inv_B*(X.R[0] - ct)));
-    S b = liegroups::sqrt(liegroups::max((S)0, inv_B*(X.R[4] - ct)));
-    S c = liegroups::sqrt(liegroups::max((S)0, inv_B*(X.R[8] - ct)));
-    
-    w[0] = w[0] < (S)0 ? -a : a;
-    w[1] = w[1] < (S)0 ? -b : b;
-    w[2] = w[2] < (S)0 ? -c : c;    
+    S w01 = invB*(S)0.5*(X.R[1] + X.R[3]);
+    S w02 = invB*(S)0.5*(X.R[2] + X.R[6]);
+    S w12 = invB*(S)0.5*(X.R[5] + X.R[7]);
+
+    // Take sqrt of biggest element of w
+    if (w00 > w11) {
+        if (w00 > w22) {
+            w[0] = (S)(w[0] < 0 ? -1 : 1) * liegroups::sqrt(w00);
+            S inv_w0 = (S)1/w[0];
+            w[1] = w01 * inv_w0;
+            w[2] = w02 * inv_w0;
+        } else {
+            w[2] = (S)(w[2] < 0 ? -1 : 1) * liegroups::sqrt(w22);
+            S inv_w2 = (S)1/w[2];
+            w[0] = w02 * inv_w2;
+            w[1] = w12 * inv_w2;
+        }
+    } else if (w11 > w22) {
+        w[1] = (S)(w[1] < 0 ? -1 : 1) * liegroups::sqrt(w11);
+        S inv_w1 = (S)1/w[1];
+        w[0] = w01 * inv_w1;
+        w[2] = w12 * inv_w1;
+    } else {
+        w[2] = (S)(w[2] < 0 ? -1 : 1) * liegroups::sqrt(w22);
+        S inv_w2 = (S)1/w[2];
+        w[0] = w02 * inv_w2;
+        w[1] = w12 * inv_w2;
+    }
 }
 
 template void liegroups::log<float>(float[3], const SO3<float> &);
