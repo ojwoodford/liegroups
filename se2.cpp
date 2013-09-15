@@ -122,14 +122,7 @@ template void liegroups::exp<double>(SE2<double> &, const double[3]);
 template <class S>
 S liegroups::SO2_log(S r00, S r01)
 {
-    S ct = liegroups::max((S)-1, liegroups::min(r00, (S)1));
-    S st = liegroups::max((S)-1, liegroups::min(-r01, (S)1));
-
-    if (ct*ct > (S)0.9)
-        return liegroups::asin(st);
-    
-    S abs_theta = liegroups::acos(ct);
-    return st < 0 ? -abs_theta : abs_theta;
+    return liegroups::atan2(-r01, r00);
 }
 
 template float liegroups::SO2_log(float r00, float r01);
