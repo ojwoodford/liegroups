@@ -32,7 +32,7 @@ void random_vec(S x[N], S scale = (S)1)
 template <class S>
 ostream &print_vec(ostream &out, const S x[], int n)
 {
-    const int w = out.precision() + 6;
+    const int w = out.precision() + 8;
     for (int i=0; i<n; ++i) {
         out.width(w);
         out << x[i];
@@ -91,20 +91,65 @@ void CHECK_ERROR(S err, S max_err, const char *name)
 }
 
 template <class G>
+struct VecGen
+{
+    typedef typename G::Scalar S;
+    static void gen_vec(S x[]) {
+        random_vec<G::DoF>(x);
+    }
+};
+
+template <class S>
+struct VecGen<SE2<S> >
+{
+    static void gen_vec(S x[]) {
+        const S pi = (S)3.1415926535897932384626433;
+        random_vec<3>(x, pi);
+    }
+};
+
+template <class S>
+struct VecGen<SO3<S> >
+{
+    static void gen_vec(S x[]) {
+        const S pi = (S)3.1415926535897932384626433;
+        random_vec<3>(x, pi);
+        S xx = x[0]*x[0] + x[1]*x[1] + x[2]*x[2];
+        S f = (S)0.999999;
+        S max_theta = f * pi;
+        if (xx >= max_theta * max_theta) {
+            S f = max_theta / liegroups::sqrt(xx);
+            x[0] *= f;
+            x[1] *= f;
+            x[2] *= f;
+        }
+    }
+};
+
+template <class S>
+struct VecGen<SE3<S> >
+{
+    static void gen_vec(S x[]) {
+        random_vec<3>(&x[0]);
+        VecGen<SO3<S> >::gen_vec(&x[3]);
+    }
+};
+
+template <class G>
 void test_group()
 {
     typedef typename G::Scalar S;
     const int N = G::DoF;
     const int D = G::Dim;
-    const S max_err = (S)10 * Constants<S>::epsilon();
+    const S max_err = (S)10 * Constants<S>::epsilon() * (S)N;
     const S max_big_err = Constants<S>::sqrt_epsilon();
     //const S max_err_sq = max_err*max_err;
-    
+
     G g = G::identity;
 
     {
         S log_g[N];
-        random_vec<N>(log_g);
+        VecGen<G>::gen_vec(log_g);
 
         exp(g, log_g);
         
@@ -114,8 +159,10 @@ void test_group()
         if (err >= max_big_err) {
             cerr.precision(19);
             cerr << g << endl;
-            for (int i=0; i<N; ++i)
-                log_exp[i] -= log_g[i];
+            // for (int i=0; i<N; ++i)
+            //     log_exp[i] -= log_g[i];
+            
+            print_vec(cerr, log_g, N) << endl;
             print_vec(cerr, log_exp, N) << endl;
         }
         CHECK_ERROR<G>(err, max_big_err, "log");
@@ -250,21 +297,21 @@ int main()
         test_rotv2v<double>();
     }
     check_count = 0;
-    for (int pass=0; pass<passes; ++pass)
-    {
-        test_group<SE2<float> >();
-        test_group<SE2<double> >();
-        test_group<Sim2<float> >();
-        test_group<Sim2<double> >();
-        test_group<SL3<float> >();
-        test_group<SL3<double> >();
-        test_group<SO3<float> >();
-        test_group<SO3<double> >();
-        test_group<SE3<float> >();
-        test_group<SE3<double> >();
-        ++check_count;
-    }
 
+    for (int pass=0; pass<passes; ++pass) test_group<SE2<float> >();
+    for (int pass=0; pass<passes; ++pass) test_group<SE2<double> >();
 
+    for (int pass=0; pass<passes; ++pass) test_group<Sim2<float> >();
+    for (int pass=0; pass<passes; ++pass) test_group<Sim2<double> >();
+
+    for (int pass=0; pass<passes; ++pass) test_group<SO3<float> >();
+    for (int pass=0; pass<passes; ++pass) test_group<SO3<double> >();
+
+    for (int pass=0; pass<passes; ++pass) test_group<SE3<float> >();
+    for (int pass=0; pass<passes; ++pass) test_group<SE3<double> >();
+
+    //for (int pass=0; pass<passes; ++pass) test_group<SL3<float> >();
+    //for (int pass=0; pass<passes; ++pass) test_group<SL3<double> >();
     
+    return 0;
 }
