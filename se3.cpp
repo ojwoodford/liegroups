@@ -236,8 +236,8 @@ void liegroups::adjoint_T_multiply(S y[6], const SE3<S> &g, const S x[6])
     y[3] = x[3] - (g.t[1]*x[2] - g.t[2]*x[1]);
     y[4] = x[4] - (g.t[2]*x[0] - g.t[0]*x[2]);
     y[5] = x[5] - (g.t[0]*x[1] - g.t[1]*x[0]);
-    transform_point_by_inverse(&y[3], g, &y[3]);
-    transform_point_by_inverse(&y[0], g, &x[0]);
+    transform_point_by_inverse(&y[3], g.R, &y[3]);
+    transform_point_by_inverse(&y[0], g.R, &x[0]);
 }
 
 template void liegroups::adjoint_T_multiply<float>(float[6], const SE3<float> &, const float[6]);
