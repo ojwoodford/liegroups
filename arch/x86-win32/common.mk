@@ -3,3 +3,5 @@ CC=$(CROSS)gcc
 CXX=$(CROSS)g++
 LD=$(CROSS)gcc
 AR=$(CROSS)ar
+
+LDFLAGS=-static-libgcc -static-libstdc++
