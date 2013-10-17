@@ -231,52 +231,20 @@ void liegroups::adjoint_multiply(S y[8], const SL3<S> &g, const S x[8])
 template void liegroups::adjoint_multiply<float>(float[8], const SL3<float> &, const float[8]);
 template void liegroups::adjoint_multiply<double>(double[8], const SL3<double> &, const double[8]);
 
-
-// compute abt = a * tranpose(b)
-template <typename S>
-static void mat_mult_ABt_3x3(S abt[3*3], const S a[3*3], const S b[3*3])
-{
-    abt[0] = a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
-    abt[1] = a[0]*b[3] + a[1]*b[4] + a[2]*b[5];
-    abt[2] = a[0]*b[6] + a[1]*b[7] + a[2]*b[8];
-
-    abt[3] = a[3]*b[0] + a[4]*b[1] + a[5]*b[2];
-    abt[4] = a[3]*b[3] + a[4]*b[4] + a[5]*b[5];
-    abt[5] = a[3]*b[6] + a[4]*b[7] + a[5]*b[8];
- 
-    abt[6] = a[6]*b[0] + a[7]*b[1] + a[8]*b[2];
-    abt[7] = a[6]*b[3] + a[7]*b[4] + a[8]*b[5];
-    abt[8] = a[6]*b[6] + a[7]*b[7] + a[8]*b[8];   
-}
-
 template <class S>
 void liegroups::adjoint_T_multiply(S y[8], const SL3<S> &g, const S x[8])
 {
-    S h[3*3];
-    to_alg(h, x);
-    h[8] += (S)2 * x[3];
-    // now h = alg^-T(x) * 2
-    const SL3<S> ginv = inverse(g);
+    S adj[8*8];
+    adjoint(adj, g);
 
-    // Compute H'*alg(x)*H^-T
-    S ginv_ht[3*3];
-    mat_mult_ABt_3x3(ginv_ht, ginv.H, h);
-    mat_mult<3,3,3>(h, ginv_ht, g.H);
-
-    // h now contains H^-1 * alg(x)' * H  == transpose(H' * alg(x) * H^-T),
-    // so we transpose it here
-    {
-        const S h1 = h[1], h2 = h[2], h5 = h[5];
-        h[1] = h[3];
-        h[3] = h1;
-        h[2] = h[6];
-        h[6] = h2;
-        h[5] = h[7];
-        h[7] = h5;
+    const S v[8] = {x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7]};
+    for (int i=0; i<8; ++i) {
+        S sum = 0;
+        for (int j=0; j<8; ++j) {
+            sum += adj[i + j*8] * v[j];
+        }
+        y[i] = sum;
     }
-    
-    from_alg(y, h);
-    y[3] -= h[8];
 }
 
 template void liegroups::adjoint_T_multiply<float>(float[8], const SL3<float> &, const float[8]);
