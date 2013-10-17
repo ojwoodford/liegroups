@@ -4,6 +4,8 @@
 #include <liegroups/se2_io.hpp>
 #include <liegroups/sim2.hpp>
 #include <liegroups/sim2_io.hpp>
+#include <liegroups/aff2.hpp>
+#include <liegroups/aff2_io.hpp>
 #include <liegroups/sl3.hpp>
 #include <liegroups/sl3_io.hpp>
 #include <liegroups/so3.hpp>
@@ -88,6 +90,7 @@ void CHECK_ERROR(S err, S max_err, const char *name)
              << ": err = " << err << ", max is " << max_err << endl;
         std::exit(1);
     }
+    ++check_count;
 }
 
 template <class G>
@@ -185,21 +188,28 @@ void test_group()
         adjoint(adj, g);
         //print_mat(cerr, adj, N, N) << endl;
 
-        S adj_v[N], adj_v_ref[N], v[N];
+        S adj_v[N], adj_v_ref[N], adj_T_v[N], adj_T_v_ref[N], v[N];
         random_vec<N>(v);
 
         for (int i=0; i<N; ++i) {
             S ai = 0;
+            S aTi = 0;
             for (int j=0; j<N; ++j) {
                 ai += adj[i*N + j] * v[j];
+                aTi += adj[j*N + i] * v[j];
             }
             adj_v_ref[i] = ai;
+            adj_T_v_ref[i] = aTi;
         }
         
         adjoint_multiply(adj_v, g, v);
         S err = max_abs_diff(adj_v, adj_v_ref, N);
         CHECK_ERROR<G>(err, max_err*10, "adj");
 
+        adjoint_T_multiply(adj_T_v, g, v);
+        err = max_abs_diff(adj_T_v, adj_T_v_ref, N);
+        CHECK_ERROR<G>(err, max_err*10, "adjT");
+        
         G exp_v;
         exp(exp_v, v);
         
@@ -216,7 +226,7 @@ void test_group()
         log(log_delta, delta);
         
         err = max_abs_diff(log_delta, log_identity, N);
-        if (err > max_big_err)
+        if (err > max_big_err*10)
         {
             cerr.precision(19);            
             cerr << g << endl;
@@ -290,7 +300,7 @@ void test_rotv2v()
 int main()
 {
     srand(47);
-    const int passes = 1000000;
+    const int passes = 100000;
     for (int pass=0; pass<passes; ++pass)
     {
         test_rotv2v<float>();
@@ -304,14 +314,17 @@ int main()
     for (int pass=0; pass<passes; ++pass) test_group<Sim2<float> >();
     for (int pass=0; pass<passes; ++pass) test_group<Sim2<double> >();
 
+    for (int pass=0; pass<passes; ++pass) test_group<Aff2<float> >();
+    for (int pass=0; pass<passes; ++pass) test_group<Aff2<double> >();
+    
     for (int pass=0; pass<passes; ++pass) test_group<SO3<float> >();
     for (int pass=0; pass<passes; ++pass) test_group<SO3<double> >();
 
     for (int pass=0; pass<passes; ++pass) test_group<SE3<float> >();
     for (int pass=0; pass<passes; ++pass) test_group<SE3<double> >();
-
+    
     //for (int pass=0; pass<passes; ++pass) test_group<SL3<float> >();
-    //for (int pass=0; pass<passes; ++pass) test_group<SL3<double> >();
+    for (int pass=0; pass<passes; ++pass) test_group<SL3<double> >();
     
     return 0;
 }
