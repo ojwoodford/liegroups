@@ -111,10 +111,11 @@ static bool invert2(S invm[2*2], const S m[2*2], S *detm)
         return false;
 
     const S inv_det = (S)1 / det;
+    const S m0 = m[0];
     invm[0] =  inv_det * m[3];
     invm[1] = -inv_det * m[1];
     invm[2] = -inv_det * m[2];
-    invm[3] =  inv_det * m[0];
+    invm[3] =  inv_det * m0;
     return true;
 }
 
@@ -495,12 +496,12 @@ bool liegroups::sqrtm(S s[N*N], const S m[N*N], const S tol)
         }
     }
     
-    S last_err = (S)0;
+    S last_err = (S)-1;
     
     for (int pass=0; pass<20; ++pass) {
         S detY, detZ;
         if (!invert<N>(s, z, &detZ) || !invert<N>(x, y, &detY))
-            return false;
+            break;
 
         const S lambda = liegroups::pow(liegroups::abs(detY * detZ), lambda_p);
         const S inv_lambda = (S)1 / lambda;
@@ -512,30 +513,36 @@ bool liegroups::sqrtm(S s[N*N], const S m[N*N], const S tol)
             z[i] = a*z[i] + b*x[i];
         }
 
-        // Check for convergence
-        S yy[N*N];
-        mat_mult<N,N,N>(yy, y, y);
-        for (int i=0; i<N*N; ++i)
-            yy[i] -= m[i];
-
-        S err = max_abs<N*N>(yy);
-        if (pass && err >= last_err)
-            return false;
-        //std::cerr << pass << "\t" << err << std::endl;
-        if (err < tol * mag) {
-            copy<N*N>(s, y);
-            return true;
+        if (pass >= 4) {            
+            // Check for convergence
+            S yy[N*N];
+            mat_mult<N,N,N>(yy, y, y);
+            for (int i=0; i<N*N; ++i)
+                yy[i] -= m[i];
+        
+            S err = max_abs<N*N>(yy);
+            if (last_err > 0 && err >= last_err) {
+                //std::cerr << "non-decreasing error: " << last_err << " --> " << err << std::endl;
+                break;
+            }
+            //std::cerr << pass << "\t" << err << std::endl;
+            if (err < tol * mag) {
+                copy<N*N>(s, y);
+                return true;
+            }
+            last_err = err;
         }
-        last_err = err;
     }
 
+    if (0)
     {
-        // Check for convergence
         S yy[N*N];
         mat_mult<N,N,N>(yy, y, y);
         for (int i=0; i<N*N; ++i)
             yy[i] -= m[i];
         std::cerr.precision(19);
+        std::cerr << "mag = " << mag << std::endl;
+        std::cerr << "max err = " << tol * mag << std::endl;
         for (int i=0; i<N; ++i) {
             for (int j=0; j<N; ++j) {
                 std::cerr.width(25);
@@ -544,7 +551,7 @@ bool liegroups::sqrtm(S s[N*N], const S m[N*N], const S tol)
             std::cerr << std::endl;
         }
     }
-    std::cerr << "sqrtm failed" << std::endl;
+    //std::cerr << "sqrtm failed" << std::endl;
     
     return false;
 }
@@ -598,7 +605,7 @@ bool liegroups::logm(S lm[N*N], const S m[N*N])
         if (max_row_norm<N>(x_minus_id) < (S)0.25)
             break;
         
-        if (!sqrtm<N>(y, x, Constants<S>::epsilon()*(S)10))
+        if (!sqrtm<N>(y, x, Constants<S>::epsilon()*(S)(10*N)))
             return false;
         swap(x, y);
 
