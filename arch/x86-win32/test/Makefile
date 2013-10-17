@@ -3,10 +3,10 @@ include ../common.mk
 CPPFLAGS=-I../../../../
 CXXFLAGS=-g -Wall -O2 -finline-functions
 
-LDFLAGS= -L../
+LDFLAGS+= -L../
 LOADLIBES= -lliegroups
 
-PROGS= main expm extrinsics
+PROGS= main expm extrinsics moments se3_moments se3_gen
 
 %.o: ../../../test/%.cpp
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c -o $@ $<
