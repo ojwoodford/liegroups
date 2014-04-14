@@ -50,6 +50,11 @@ namespace liegroups {
     template <class S>
     void exp(SE2<S> &X, const S x[3]);
 
+    // Compute X = exp(x),
+    //      dexp = diff(log(exp(x + d)*exp(-x)), d) at d = 0
+    template <class S>
+    void exp_diff(SE2<S> &X, S dexp[3*3], const S x[3]);
+    
     template <class S>
     void log(S x[3], const SE2<S> &X);
 

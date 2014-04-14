@@ -47,6 +47,11 @@ namespace liegroups {
     template <class S>
     void exp(SE3<S> &X, const S x[6]);
 
+    // Compute X = exp(x),
+    //      dexp = diff(log(exp(x + d)*exp(-x)), d) at d = 0
+    template <class S>
+    void exp_diff(SE3<S> &X, S dexp[6*6], const S x[6]);
+
     template <class S>
     void log(S x[6], const SE3<S> &X);
     
@@ -58,10 +63,5 @@ namespace liegroups {
 
     template <class S>
     void adjoint_T_multiply(S y[6], const SE3<S> &g, const S x[6]);
-
-    // Compute X = exp(x),
-    //      dexp = diff(log(exp(x + d)*exp(-x)), d) at d = 0
-    template <class S>
-    void exp_diff(SE3<S> &X, S dexp[6*6], const S x[6]);
     
 }

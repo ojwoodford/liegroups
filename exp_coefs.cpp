@@ -47,7 +47,7 @@ S compute_exp_coefs_large(S theta_sq, ExpCoefs<S> &coefs)
 template <typename S>
 void liegroups::ExpCoefs<S>::compute(S theta_sq)
 {
-    if (theta_sq < 25 * Constants<S>::epsilon()) {
+    if (theta_sq < 25 * Constants<S>::sqrt_epsilon()) {
         compute_exp_coefs_small(theta_sq, *this);
     } else {
         compute_exp_coefs_large(theta_sq, *this);
@@ -57,7 +57,7 @@ void liegroups::ExpCoefs<S>::compute(S theta_sq)
 template <typename S>
 void liegroups::DiffExpCoefs<S>::compute(S theta_sq)
 {
-    if (theta_sq < 25 * Constants<S>::epsilon()) {
+    if (theta_sq < 25 * Constants<S>::sqrt_epsilon()) {
         compute_exp_coefs_small(theta_sq, *this);
         compute_diff_exp_coefs_small(theta_sq, A1, B1, C1);
     } else {
@@ -72,7 +72,7 @@ void liegroups::DiffExpCoefs<S>::compute(S theta_sq)
 template <typename S>
 void liegroups::Diff2ExpCoefs<S>::compute(S theta_sq)
 {
-    if (theta_sq < 25 * Constants<S>::epsilon()) {
+    if (theta_sq < 25 * Constants<S>::sqrt_epsilon()) {
         compute_exp_coefs_small(theta_sq, *this);
         compute_diff_exp_coefs_small(theta_sq, this->A1, this->B1, this->C1);
         compute_diff2_exp_coefs_small(theta_sq, A2, B2, C2);

@@ -1,5 +1,6 @@
 #include <liegroups/se2.hpp>
 #include <liegroups/scalar.hpp>
+#include <liegroups/exp_coefs.hpp>
 #include <cmath>
 
 template <> const liegroups::SE2<float>
@@ -95,29 +96,45 @@ template void liegroups::transform_point_by_inverse<float,double>(double[2], con
 template <class S>
 void liegroups::exp(SE2<S> &X, const S x[3])
 {
-    S theta_sq = x[2]*x[2];
-    S c, s;
-    S a, b;
-    if (theta_sq < Constants<S>::sqrt_epsilon()) {
-        c = (S)1 - theta_sq*(S)0.5*((S)1 - theta_sq*(S)(1/12.0));
-        a = (S)1 - theta_sq*(S)(1/6.0)*((S)1 - theta_sq*(S)(1/20.0));
-        s = x[2]*a;
-        b = (S)0.5 *x[2]*((S)1 - theta_sq*(S)(1/12.0)*((S)1 - theta_sq*(S)(1/30.0)));
-    } else {
-        c = liegroups::cos(x[2]);
-        s = liegroups::sin(x[2]);
-        S inv_theta = (S)1 / x[2];
-        a = inv_theta * s;
-        b = inv_theta * ((S)1 - c);        
-    }
-    X.r[0] = c;
-    X.r[1] = -s;
-    X.t[0] = a*x[0] - b*x[1];
-    X.t[1] = b*x[0] + a*x[1];
+    const S theta_sq = x[2]*x[2];
+    const ExpCoefs<S> coefs(theta_sq);
+    const S Bt = coefs.B*x[2];
+    X.r[0] = coefs.cos_theta;
+    X.r[1] = -x[2]*coefs.A;
+    X.t[0] = coefs.A*x[0] - Bt*x[1];
+    X.t[1] = Bt*x[0] + coefs.A*x[1];
 }
 
 template void liegroups::exp<float>(SE2<float> &, const float[3]);
 template void liegroups::exp<double>(SE2<double> &, const double[3]);
+
+template <class S>
+void liegroups::exp_diff(SE2<S> &X, S dexp[3*3], const S x[3])
+{
+    const S theta_sq = x[2]*x[2];
+    const ExpCoefs<S> coefs(theta_sq);
+    const S Bt = coefs.B*x[2];
+    X.r[0] = coefs.cos_theta;
+    X.r[1] = -x[2]*coefs.A;
+    X.t[0] = coefs.A*x[0] - Bt*x[1];
+    X.t[1] = Bt*x[0] + coefs.A*x[1];
+
+    dexp[0] = coefs.A;
+    dexp[4] = coefs.A;
+    dexp[6] = 0;
+    dexp[7] = 0;
+    dexp[8] = (S)1;
+    
+    dexp[1] = -Bt;
+    dexp[3] = Bt;
+    
+    const S Ct = coefs.C*x[2];
+    dexp[2] = coefs.B * x[1] + Ct * x[0];
+    dexp[5] = Ct * x[1] - coefs.B * x[0];
+}
+
+template void liegroups::exp_diff<float>(SE2<float>&, float[3*3], const float[3]);
+template void liegroups::exp_diff<double>(SE2<double>&, double[3*3], const double[3]);
 
 template <class S>
 S liegroups::SO2_log(S r00, S r01)
@@ -131,23 +148,18 @@ template double liegroups::SO2_log(double r00, double r01);
 template <class S>
 void liegroups::log(S x[3], const SE2<S> &X)
 {
-    S theta = SO2_log(X.r[0], X.r[1]);
-    S theta_sq = theta*theta;
-
-    S a, b;
-    if (theta_sq < Constants<S>::sqrt_epsilon()) {
-        a = (S)1 - theta_sq*(S)(1/6.0)*((S)1 - theta_sq*(S)(1/20.0));
-        b = (S)0.5*theta*((S)1 - theta_sq*(S)(1/12.0)*((S)1 - theta_sq*(S)(1/30.0)));
+    const S theta = SO2_log(X.r[0], X.r[1]);
+    const S theta_sq = theta * theta;
+    const ExpCoefs<S> coefs(theta_sq);
+    S f;
+    if (theta_sq < 25*Constants<S>::sqrt_epsilon()) {
+        f = 1 - theta_sq*((S)(1.0/12) - theta_sq*(S)(1.0/720));
     } else {
-        S inv_theta = (S)1 / theta;
-        a = inv_theta * -X.r[1];
-        b = inv_theta * ((S)1 - X.r[0]);
+        f = (S)0.5 * coefs.A / coefs.B;
     }
-
-    S f = (S)1 / (a*a + b*b);
-    x[0] = f*(a*X.t[0] + b*X.t[1]);
-    x[1] = f*(a*X.t[1] - b*X.t[0]);
-    x[2] = theta;    
+    x[0] = f * X.t[0] + (S)0.5 * theta * X.t[1];
+    x[1] = f * X.t[1] - (S)0.5 * theta * X.t[0];
+    x[2] = theta;
 }
 
 template void liegroups::log<float>(float[3], const SE2<float> &);

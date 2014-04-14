@@ -7,9 +7,9 @@ std::ostream &liegroups::operator<<(std::ostream &out, const SE2<S> &g)
 {
     const int w = out.precision() + 6;
     out.width(w); out << g.r[0];
-    out.width(w); out << -g.r[1];
-    out.width(w); out << g.t[0] << std::endl;
     out.width(w); out << g.r[1];
+    out.width(w); out << g.t[0] << std::endl;
+    out.width(w); out << -g.r[1];
     out.width(w); out << g.r[0];
     out.width(w); out << g.t[1] << std::endl;
     return out;
@@ -22,8 +22,8 @@ template <class S>
 std::istream &liegroups::operator>>(std::istream &in, SE2<S> &g)
 {
     S nr1, r0;
-    in >> g.r[0] >> nr1 >> g.t[0];
-    in >> g.r[1] >> r0 >> g.t[1];
+    in >> g.r[0] >> g.r[1] >> g.t[0];
+    in >> nr1 >> r0 >> g.t[1];
     return in;
 }
 
