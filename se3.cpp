@@ -2,6 +2,8 @@
 #include <liegroups/scalar.hpp>
 #include <liegroups/matrix.hpp>
 #include <cmath>
+#include <liegroups/exp_coefs.hpp>
+#include <liegroups/exp_helpers.hpp>
 
 using namespace liegroups;
 
@@ -109,54 +111,22 @@ static void cross(S axb[3], const S a[3], const S b[3])
     axb[2] = a[0]*b[1] - a[1]*b[0];
 }
 
-template <typename S>
-static void compute_exp_coefs(const S theta_sq, S &a, S &b, S &c)
-{
-    if (theta_sq < Constants<S>::sqrt_epsilon()) {
-        a = (S)1 - theta_sq*((S)(1.0/6) + theta_sq*(S)(1.0/120));
-        b = (S)0.5 - theta_sq*((S)(1.0/24) - theta_sq*(S)(1.0/720));
-        c = (S)(1.0/6) - theta_sq*((S)(1.0/120) - theta_sq*(S)(1.0/5040));
-    } else {
-        S theta = liegroups::sqrt(theta_sq);
-        S inv_theta = (S)1 / theta;
-        S inv_theta_sq = inv_theta * inv_theta;
-        S ct = liegroups::cos(theta);
-        S st = liegroups::sin(theta);
-        a = inv_theta * st;
-        b = inv_theta_sq * ((S)1 - ct);
-        c = inv_theta_sq * ((S)1 - a);
-    }    
-}
-
+    
 template <class S>
 void liegroups::exp(SE3<S> &X, const S uw[6])
 {
     const S *w = &uw[3];
-    S w00 = w[0]*w[0], w11 = w[1]*w[1], w22 = w[2]*w[2];
-    S theta_sq = w00 + w11 + w22;
-    S a, b, c;
-    compute_exp_coefs(theta_sq, a, b, c);
+    const S theta_sq = w[0]*w[0] + w[1]*w[1] + w[2]*w[2];
+    const ExpCoefs<S> coefs(theta_sq);
     
-    X.R.R[0] = (S)1 - b * (w11 + w22);
-    X.R.R[4] = (S)1 - b * (w00 + w22);
-    X.R.R[8] = (S)1 - b * (w00 + w11);
-
-    S Bab = b*w[0]*w[1];
-    S Bac = b*w[0]*w[2];
-    S Bbc = b*w[1]*w[2];
-    X.R.R[1] = Bab - a*w[2];
-    X.R.R[3] = Bab + a*w[2];
-    X.R.R[2] = Bac + a*w[1];
-    X.R.R[6] = Bac - a*w[1];
-    X.R.R[5] = Bbc - a*w[0];
-    X.R.R[7] = Bbc + a*w[0];
+    compute_exp_matrix3(X.R.R, coefs.cos_theta, coefs.A, coefs.B, w);
 
     S wxu[3], wxwxu[3];
     cross(wxu, w, uw);
     cross(wxwxu, w, wxu);
 
     for (int i=0; i<3; ++i)
-        X.t[i] = uw[i] + b*wxu[i] + c*wxwxu[i];
+        X.t[i] = uw[i] + coefs.B*wxu[i] + coefs.C*wxwxu[i];
 }
 
 template void liegroups::exp<float>(SE3<float> &, const float[3]);
@@ -168,10 +138,11 @@ void liegroups::log(S uw[6], const SE3<S> &X)
     S *w = &uw[3];
     log(w, X.R);
 
-    S w00 = w[0]*w[0], w11 = w[1]*w[1], w22 = w[2]*w[2];
-    S theta_sq = w00 + w11 + w22;
-    S a, b, c;
-    compute_exp_coefs(theta_sq, a, b, c);
+    const S theta_sq = dot3(w,w);
+    const ExpCoefs<S> coefs(theta_sq);
+    const S a = coefs.A;
+    const S b = coefs.B;
+    const S c = coefs.C;
 
     S d;
     if (theta_sq < Constants<S>::epsilon()*25) {
@@ -187,7 +158,7 @@ void liegroups::log(S uw[6], const SE3<S> &X)
     cross(wxwxt, w, wxt);
 
     for (int i=0; i<3; ++i) {
-        uw[i] = (S)X.t[i] - (S)0.5*wxt[i] + d*wxwxt[i];
+        uw[i] = X.t[i] - (S)0.5*wxt[i] + d*wxwxt[i];
     }
 }
 
@@ -242,3 +213,75 @@ void liegroups::adjoint_T_multiply(S y[6], const SE3<S> &g, const S x[6])
 
 template void liegroups::adjoint_T_multiply<float>(float[6], const SE3<float> &, const float[6]);
 template void liegroups::adjoint_T_multiply<double>(double[6], const SE3<double> &, const double[6]);
+
+
+template <class S>
+void liegroups::exp_diff(SE3<S> &exp_uw, S dexp[6*6], const S uw[6])
+{
+    const S *const u = &uw[0];
+    const S *const w = &uw[3];
+    
+    const S w00 = w[0]*w[0];
+    const S w11 = w[1]*w[1];
+    const S w22 = w[2]*w[2];
+    const S theta_sq = w00 + w11 + w22;
+    DiffExpCoefs<S> coefs(theta_sq);
+
+    // exp_uw.R = I + Awx + Bwx^2
+    compute_exp_matrix3(exp_uw.R.R, coefs.cos_theta, coefs.A, coefs.B, w);
+    
+    // dexp = [ V  X ]
+    //        [ 0  V ]
+    //
+    // V = A*I + B*w_x + C*ww'
+    //
+    compute_exp_matrix3(&dexp[0], &dexp[6], &dexp[12], coefs.A, coefs.B, coefs.C, w);
+    
+    // exp_uw.t = V * u
+    exp_uw.t[0] = dot3(&dexp[ 0], u);
+    exp_uw.t[1] = dot3(&dexp[ 6], u);
+    exp_uw.t[2] = dot3(&dexp[12], u);
+    
+    // X = B*u_x + C*(uw' + wu') + (w'u) * (A1*I + B1*w_x + C1*ww')
+    {
+        const S uw0 = u[0]*w[0];
+        const S uw1 = u[1]*w[1];
+        const S uw2 = u[2]*w[2];
+        const S wtu = uw0 + uw1 + uw2;
+
+        // Diagonal
+        dexp[ 3] = coefs.C*2*uw0 + wtu*(coefs.A1 + coefs.C1 * w00);
+        dexp[10] = coefs.C*2*uw1 + wtu*(coefs.A1 + coefs.C1 * w11);
+        dexp[17] = coefs.C*2*uw2 + wtu*(coefs.A1 + coefs.C1 * w22);
+
+        // Symmetric
+        const S s01 = coefs.C*(u[0]*w[1] + u[1]*w[0]);
+        const S s02 = coefs.C*(u[0]*w[2] + u[2]*w[0]);
+        const S s12 = coefs.C*(u[1]*w[2] + u[2]*w[1]);
+        
+        // Anti-symmetric
+        const S a10 = coefs.B*u[2] + wtu*coefs.B1*w[2];
+        const S a02 = coefs.B*u[1] + wtu*coefs.B1*w[1];
+        const S a21 = coefs.B*u[0] + wtu*coefs.B1*w[0];
+        
+        dexp[ 4] = s01 - a10;
+        dexp[ 9] = s01 + a10;
+        dexp[ 5] = s02 + a02;
+        dexp[15] = s02 - a02;
+        dexp[11] = s12 - a21;
+        dexp[16] = s12 + a21;
+    }
+
+    // Zero lower left, and copy V to lower right
+    for (int i=0; i<3; ++i) {
+        dexp[18+i] = 0;
+        dexp[24+i] = 0;
+        dexp[30+i] = 0;
+        dexp[21+i] = dexp[i];
+        dexp[27+i] = dexp[6+i];
+        dexp[33+i] = dexp[12+i];
+    }
+}
+
+template void liegroups::exp_diff<float>(SE3<float>&, float[6*6], const float [6]);
+template void liegroups::exp_diff<double>(SE3<double>&, double[6*6], const double [6]);

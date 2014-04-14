@@ -56,6 +56,11 @@ namespace liegroups {
     template <class S>
     void adjoint_T_multiply(S y[3], const SO3<S> &g, const S x[3]);
 
+    // Compute X = exp(x),
+    //      dexp = diff(log(exp(x + d)*exp(-x)), d) at d = 0
+    template <class S>
+    void exp_diff(SO3<S> &X, S dexp[3*3], const S x[3]);
+
     // Expects |a| == |b| == 1
     // Returns true on success
     template <class S>

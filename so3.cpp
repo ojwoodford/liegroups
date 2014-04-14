@@ -1,4 +1,6 @@
 #include <liegroups/so3.hpp>
+#include <liegroups/exp_coefs.hpp>
+#include <liegroups/exp_helpers.hpp>
 #include <liegroups/scalar.hpp>
 #include <liegroups/matrix.hpp>
 #include <cmath>
@@ -140,34 +142,9 @@ template void liegroups::transform_point_by_inverse<float,double>(double[3], con
 template <class S>
 void liegroups::exp(SO3<S> &X, const S w[3])
 {
-    S w00 = w[0]*w[0], w11 = w[1]*w[1], w22 = w[2]*w[2];
-    S theta_sq = w00 + w11 + w22;
-    S a, b;
-    if (theta_sq < Constants<S>::sqrt_epsilon()) {
-        a = (S)1 - theta_sq*((S)(1.0/6) + theta_sq*(S)(1.0/120));
-        b = (S)0.5 - theta_sq*((S)(1.0/24) - theta_sq*(S)(1.0/720));
-    } else {
-        S theta = liegroups::sqrt(theta_sq);
-        S inv_theta = (S)1 / theta;
-        S c = liegroups::cos(theta);
-        S s = liegroups::sin(theta);
-        a = inv_theta * s;
-        b = inv_theta * inv_theta * ((S)1 - c);
-    }
-
-    X.R[0] = (S)1 - b * (w11 + w22);
-    X.R[4] = (S)1 - b * (w00 + w22);
-    X.R[8] = (S)1 - b * (w00 + w11);
-
-    S Bab = b*w[0]*w[1];
-    S Bac = b*w[0]*w[2];
-    S Bbc = b*w[1]*w[2];
-    X.R[1] = Bab - a*w[2];
-    X.R[3] = Bab + a*w[2];
-    X.R[2] = Bac + a*w[1];
-    X.R[6] = Bac - a*w[1];
-    X.R[5] = Bbc - a*w[0];
-    X.R[7] = Bbc + a*w[0];    
+    const S theta_sq = w[0]*w[0] + w[1]*w[1] + w[2]*w[2];
+    const ExpCoefs<S> coefs(theta_sq);
+    compute_exp_matrix3(X.R, coefs.cos_theta, coefs.A, coefs.B, w);
 }
 
 template void liegroups::exp<float>(SO3<float> &, const float[3]);
@@ -372,3 +349,20 @@ bool liegroups::compute_rotation_between_unit_vectors(SO3<S> &R, const S a[3], c
 
 template bool liegroups::compute_rotation_between_unit_vectors<float>(SO3<float> &, const float[3], const float[3]);
 template bool liegroups::compute_rotation_between_unit_vectors<double>(SO3<double> &, const double[3], const double[3]);
+
+
+template <class S>
+void liegroups::exp_diff(SO3<S> &X, S dexp[3*3], const S w[3])
+{
+    const S w00 = w[0]*w[0];
+    const S w11 = w[1]*w[1];
+    const S w22 = w[2]*w[2];
+    const S theta_sq = w00 + w11 + w22;
+    ExpCoefs<S> coefs(theta_sq);
+
+    compute_exp_matrix3(X.R, coefs.cos_theta, coefs.A, coefs.B, w);
+    compute_exp_matrix3(dexp, coefs.A, coefs.B, coefs.C, w);
+}
+
+template void liegroups::exp_diff<float>(SO3<float>&, float[3*3], const float [3]);
+template void liegroups::exp_diff<double>(SO3<double>&, double[3*3], const double [3]);
