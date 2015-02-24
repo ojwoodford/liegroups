@@ -17,7 +17,7 @@ liegroups::SL3<double>::identity = { {1.0, 0.0, 0.0,
 template <class S>
 void liegroups::multiply(SL3<S> &ab, const SL3<S> &a, const SL3<S> &b)
 {
-    mat_mult<3,3,3>(ab.H, a.H, b.H);
+    mat_mult_square<3>(ab.H, a.H, b.H);
 }
 
 template void liegroups::multiply<float>(SL3<float>&, const SL3<float>&, const SL3<float> &);
@@ -222,8 +222,8 @@ void liegroups::adjoint_multiply(S y[8], const SL3<S> &g, const S x[8])
 
     // Compute H*alg(h)*H^-1
     S gh[3*3];
-    mat_mult<3,3,3>(gh, g.H, h);
-    mat_mult<3,3,3>(h, gh, ginv.H);
+    mat_mult_square<3>(gh, g.H, h);
+    mat_mult_square<3>(h, gh, ginv.H);
 
     from_alg(y, h);
 }

@@ -86,7 +86,7 @@ int main(int argc, char *argv[])
     liegroups::sqrtm<3>(sm, exp_wx, tol);    
     print_mat(std::cout, sm, 3, 3) << std::endl;
     S sm2[3*3];
-    liegroups::mat_mult<3,3,3>(sm2, sm, sm);
+    liegroups::mat_mult_square<3>(sm2, sm, sm);
     print_mat(std::cout, sm2, 3, 3) << std::endl;
 
     S lnm[3*3];

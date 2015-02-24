@@ -11,6 +11,9 @@ namespace liegroups {
         static const SE2<S> identity;
         enum { DoF = 3, Dim = 2 };
         typedef S Scalar;
+
+        static void ad_multiply(S ada_b[3], const S a[3], const S b[3]);
+        static void ad(S ada[3*3], const S a[3]);        
     };
    
     template <class S>
@@ -57,6 +60,11 @@ namespace liegroups {
     
     template <class S>
     void log(S x[3], const SE2<S> &X);
+
+    // Compute x = log(X),
+    //      dlog = diff(log(exp(d) * X), d) at d = 0
+    template <class S>
+    void log_diff(S x[3], S dlog[3*3], const SE2<S> &X);
 
     template <class S>
     S SO2_log(S r00, S r01);

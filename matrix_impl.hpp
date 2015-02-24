@@ -55,17 +55,17 @@ static S max_row_norm(const S x[N*N])
 
 namespace liegroups
 {
-    template <int M, int C, int N>
-    struct MatMult
+    template <int N>
+    struct MatMultSquare
     {
         template <typename S>
-        static void eval(S ab[M*N], const S a[M*C], const S b[C*N])
+        static void eval(S ab[N*N], const S a[N*N], const S b[N*N])
         {
-            for (int i=0; i<M; ++i) {
+            for (int i=0; i<N; ++i) {
                 for (int j=0; j<N; ++j) {
                     S sum = (S)0;
-                    for (int k=0; k<C; ++k) {
-                        sum += a[i*C + k] * b[j + k*N];
+                    for (int k=0; k<N; ++k) {
+                        sum += a[i*N + k] * b[j + k*N];
                     }
                     ab[i*N + j] = sum;
                 }
@@ -74,7 +74,7 @@ namespace liegroups
     };
 
     template <>
-    struct MatMult<3,3,3>
+    struct MatMultSquare<3>
     {
         template <typename S>
         static void eval(S ab[3*3], const S a[3*3], const S b[3*3])
@@ -95,10 +95,10 @@ namespace liegroups
 
 }
         
-template <int M, int C, int N, typename S>
-void liegroups::mat_mult(S ab[M*N], const S a[M*C], const S b[C*N])
+template <int N, typename S>
+void liegroups::mat_mult_square(S ab[N*N], const S a[N*N], const S b[N*N])
 {
-    MatMult<M,C,N>::eval(ab, a, b);
+    MatMultSquare<N>::eval(ab, a, b);
 }
 
 template <typename S>
@@ -216,6 +216,30 @@ void liegroups::LU_inverse_times_vec(S *x, const S LU[N*N], const int index[N], 
         for (int j=i+1; j<N; ++j)
             xi -= Ui[j]*x[j*C];
         x[i*C] = xi;
+    }
+}
+
+template <int N, typename S>
+void liegroups::LU_invert(S inv[N*N], const S LU[N*N], const int index[N])
+{
+    S b[N];
+    for (int i=0; i<N; ++i) {
+        b[i] = 0;
+    }
+    
+    for (int c=0; c<N; ++c) {
+        b[c] = 1;
+        LU_inverse_times_vec<N,1>(&inv[c*N], LU, index, b);
+        b[c] = 0;
+    }
+
+    // Transpose
+    for (int i=0; i<N; ++i) {
+        for (int j=i+1; j<N; ++j) {
+            S tmp = inv[i*N + j];
+            inv[i*N + j] = inv[j*N + i];
+            inv[j*N + i] = tmp;
+        }
     }
 }
 
@@ -367,7 +391,7 @@ bool liegroups::expm(S em[N*N], const S m[N*N])
     }
     
     S *const sm2 = em;
-    mat_mult<N,N,N>(sm2, sm, sm);
+    mat_mult_square<N>(sm2, sm, sm);
 
     static const S c[7] = {S(1.0/2), S(3.0/26), S(5.0/312), S(5.0/3432),
                            S(1.0/11440), S(1.0/308880), S(1.0/17297280) };
@@ -379,10 +403,10 @@ bool liegroups::expm(S em[N*N], const S m[N*N])
             A[i] = sm2[i]*c[5];
         for (int i=0; i<N; ++i)
             A[i*(N+1)] += c[3];
-        mat_mult<N,N,N>(tmp, sm2, A);
+        mat_mult_square<N>(tmp, sm2, A);
         for (int i=0; i<N; ++i)
             tmp[i*(N+1)] += c[1];
-        mat_mult<N,N,N>(A, sm2, tmp);
+        mat_mult_square<N>(A, sm2, tmp);
         for (int i=0; i<N; ++i)
             A[i*(N+1)] += (S)1;
     }
@@ -392,13 +416,13 @@ bool liegroups::expm(S em[N*N], const S m[N*N])
             tmp[i] = sm2[i]*c[6];
         for (int i=0; i<N; ++i)
             tmp[i*(N+1)] += c[4];
-        mat_mult<N,N,N>(B, sm2, tmp);
+        mat_mult_square<N>(B, sm2, tmp);
         for (int i=0; i<N; ++i)
             B[i*(N+1)] += c[2];
-        mat_mult<N,N,N>(tmp, sm2, B);
+        mat_mult_square<N>(tmp, sm2, B);
         for (int i=0; i<N; ++i)
             tmp[i*(N+1)] += c[0];
-        mat_mult<N,N,N>(B, sm, tmp);
+        mat_mult_square<N>(B, sm, tmp);
     }
 
     // Compute tmp = inv(A-B) * (A+B)
@@ -415,7 +439,7 @@ bool liegroups::expm(S em[N*N], const S m[N*N])
     // Square s times
     S *in = tmp, *out = A;
     for (int i=0; i<s; ++i) {        
-        mat_mult<N,N,N>(out, in, in);
+        mat_mult_square<N>(out, in, in);
         swap(in, out);
     }
 
@@ -516,7 +540,7 @@ bool liegroups::sqrtm(S s[N*N], const S m[N*N], const S tol)
         if (pass >= 4) {            
             // Check for convergence
             S yy[N*N];
-            mat_mult<N,N,N>(yy, y, y);
+            mat_mult_square<N>(yy, y, y);
             for (int i=0; i<N*N; ++i)
                 yy[i] -= m[i];
         
@@ -537,7 +561,7 @@ bool liegroups::sqrtm(S s[N*N], const S m[N*N], const S tol)
     if (0)
     {
         S yy[N*N];
-        mat_mult<N,N,N>(yy, y, y);
+        mat_mult_square<N>(yy, y, y);
         for (int i=0; i<N*N; ++i)
             yy[i] -= m[i];
         std::cerr.precision(19);
@@ -569,7 +593,7 @@ static bool logm_newton(S lm[N*N], const S m[N*N], int iter)
             return false;
 
         S d[N*N];
-        liegroups::mat_mult<N,N,N>(d, enlm, m);
+        liegroups::mat_mult_square<N>(d, enlm, m);
         
         for (int i=0; i<N; ++i)
             d[i*(N+1)] -= (S)1;

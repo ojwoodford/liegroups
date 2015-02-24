@@ -9,6 +9,30 @@ liegroups::SE2<float>::identity = { {1.f, 0.f}, {0.f, 0.f} };
 template <> const liegroups::SE2<double>
 liegroups::SE2<double>::identity = { {1.0, 0.0}, {0.0, 0.0} };
 
+template <typename S>
+void liegroups::SE2<S>::ad_multiply(S ada_b[3], const S a[3], const S b[3])
+{
+    ada_b[0] = a[1]*b[2] - a[2]*b[1];
+    ada_b[1] = a[2]*b[0] - a[0]*b[2];
+}
+
+template void liegroups::SE2<float>::ad_multiply(float[3], const float[3], const float[3]);
+template void liegroups::SE2<double>::ad_multiply(double[3], const double[3], const double[3]);
+
+template <typename S>
+void liegroups::SE2<S>::ad(S ada[3*3], const S a[3])
+{
+    ada[0] = ada[4] = 0;
+    ada[1] = -a[2];
+    ada[2] = a[1];
+    ada[3] = a[2];
+    ada[5] = -a[0];
+    ada[6] = ada[7] = ada[8] = 0;    
+}
+
+template void liegroups::SE2<float>::ad(float[3*3], const float a[3]);
+template void liegroups::SE2<double>::ad(double[3*3], const double a[3]);
+
 template <class S>
 void liegroups::multiply(SE2<S> &ab, const SE2<S> &a, const SE2<S> &b)
 {
@@ -151,19 +175,44 @@ void liegroups::log(S x[3], const SE2<S> &X)
     const S theta = SO2_log(X.r[0], X.r[1]);
     const S theta_sq = theta * theta;
     const ExpCoefs<S> coefs(theta_sq);
-    S f;
-    if (theta_sq < 25*Constants<S>::sqrt_epsilon()) {
-        f = 1 - theta_sq*((S)(1.0/12) - theta_sq*(S)(1.0/720));
-    } else {
-        f = (S)0.5 * coefs.A / coefs.B;
-    }
-    x[0] = f * X.t[0] + (S)0.5 * theta * X.t[1];
-    x[1] = f * X.t[1] - (S)0.5 * theta * X.t[0];
+    const S f = (S)0.5 * coefs.A / coefs.B;
+    const S ht = (S)0.5 * theta;
+
+    x[0] = f * X.t[0] + ht * X.t[1];
+    x[1] = f * X.t[1] - ht * X.t[0];
     x[2] = theta;
 }
 
 template void liegroups::log<float>(float[3], const SE2<float> &);
 template void liegroups::log<double>(double[3], const SE2<double> &);
+
+template <class S>
+void liegroups::log_diff(S x[3], S dlog[3*3], const SE2<S> &X)
+{
+    const S theta = SO2_log(X.r[0], X.r[1]);
+    const S theta_sq = theta * theta;
+    const ExpCoefs<S> coefs(theta_sq);
+    const S f = (S)0.5 * coefs.A / coefs.B;    
+    const S ht = (S)0.5 * theta;
+    
+    x[0] = f * X.t[0] + ht * X.t[1];
+    x[1] = f * X.t[1] - ht * X.t[0];
+    x[2] = theta;
+
+    const S Ct = coefs.C * theta;
+    const S ex = Ct * x[0] + coefs.B * x[1];
+    const S ey = Ct * x[1] - coefs.B * x[0];
+    dlog[0] = dlog[4] = f;
+    dlog[1] = ht;
+    dlog[3] = -ht;
+    dlog[2] = -(f * ex + ht * ey);
+    dlog[5] = ht * ex - f * ey;
+    dlog[6] = dlog[7] = 0;
+    dlog[8] = 1;
+}
+
+template void liegroups::log_diff<float>(float[3], float[3*3], const SE2<float> &);
+template void liegroups::log_diff<double>(double[3], double[3*3], const SE2<double> &);
 
 template <class S>
 void liegroups::adjoint(S adj[3*3], const SE2<S> &g)

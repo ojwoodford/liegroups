@@ -4,8 +4,8 @@ namespace liegroups
 {
     // ab <-- a * b
     // No aliasing of input and output permitted.
-    template <int M, int C, int N, typename S>
-    void mat_mult(S ab[M*N], const S a[M*C], const S b[C*N]);
+    template <int N, typename S>
+    void mat_mult_square(S ab[N*N], const S a[N*N], const S b[N*N]);
 
     // Instantiated for N=2,3
     template <int N, typename S>
@@ -22,7 +22,7 @@ namespace liegroups
     // x and b have stride Stride
     template <int N, int Stride, typename S>
     void LU_inverse_times_vec(S x[N*Stride], const S LU[N*N], const int index[N], const S b[N*Stride]);
-
+    
     // Solves AX=B for X, where {LU,index} is the decomposition of A.
     // X can alias B.
     template <int N, int C, typename S>
@@ -31,6 +31,11 @@ namespace liegroups
         for (int j=0; j<C; ++j)
             LU_inverse_times_vec<N,C>(&X[j], LU, index, &B[j]);
     }
+
+    // Compute inv = inverse(A) from its LU decomposition.
+    template <int N, typename S>
+    void LU_invert(S inv[N*N], const S LU[N*N], const int index[N]);
+    
     
     // s <-- sqrtm(m)
     // Aliasing permitted.

@@ -15,10 +15,39 @@ liegroups::SO3<double>::identity = { {1.0, 0.0, 0.0,
                                       0.0, 1.0, 0.0,
                                       0.0, 0.0, 1.0} };
 
+template <typename S>
+void liegroups::SO3<S>::ad_multiply(S ada_b[], const S a[], const S b[])
+{
+    const S b0 = b[0];
+    const S b1 = b[1];
+    const S b2 = b[2];
+    ada_b[0] = a[1]*b2 - a[2]*b1;
+    ada_b[1] = a[2]*b0 - a[0]*b2;
+    ada_b[2] = a[0]*b1 - a[1]*b0;
+}
+
+template void liegroups::SO3<float>::ad_multiply(float[], const float[], const float[]);
+template void liegroups::SO3<double>::ad_multiply(double[], const double[], const double[]);
+
+template <typename S>
+void liegroups::SO3<S>::ad(S ada[3*3], const S a[])
+{
+    ada[0] = ada[4] = ada[8] = 0;
+    ada[1] = -a[2];
+    ada[2] = a[1];
+    ada[3] = a[2];
+    ada[5] = -a[0];
+    ada[6] = -a[1];
+    ada[7] = a[0];
+}
+
+template void liegroups::SO3<float>::ad(float[], const float[]);
+template void liegroups::SO3<double>::ad(double[], const double[]);
+
 template <class S>
 void liegroups::multiply(SO3<S> &ab, const SO3<S> &a, const SO3<S> &b)
 {
-    mat_mult<3,3,3>(ab.R, a.R, b.R);
+    mat_mult_square<3>(ab.R, a.R, b.R);
 }
 
 template void liegroups::multiply<float>(SO3<float>&, const SO3<float>&, const SO3<float> &);
@@ -354,11 +383,7 @@ template bool liegroups::compute_rotation_between_unit_vectors<double>(SO3<doubl
 template <class S>
 void liegroups::exp_diff(SO3<S> &X, S dexp[3*3], const S w[3])
 {
-    const S w00 = w[0]*w[0];
-    const S w11 = w[1]*w[1];
-    const S w22 = w[2]*w[2];
-    const S theta_sq = w00 + w11 + w22;
-    ExpCoefs<S> coefs(theta_sq);
+    ExpCoefs<S> coefs(dot3(w,w));
 
     compute_exp_matrix3(X.R, coefs.cos_theta, coefs.A, coefs.B, w);
     compute_exp_matrix3(dexp, coefs.A, coefs.B, coefs.C, w);
@@ -366,3 +391,24 @@ void liegroups::exp_diff(SO3<S> &X, S dexp[3*3], const S w[3])
 
 template void liegroups::exp_diff<float>(SO3<float>&, float[3*3], const float [3]);
 template void liegroups::exp_diff<double>(SO3<double>&, double[3*3], const double [3]);
+
+template <typename S>
+void liegroups::log_diff(S w[3], S dlog[3*3], const SO3<S> &X)
+{
+    log(w, X);
+    
+    const S theta_sq = dot3(w,w);
+    const ExpCoefs<S> coefs(theta_sq);
+
+    S e;
+    if (coefs.cos_theta < (S)0.9) {
+        e = (coefs.B - (S)0.5 * coefs.A) / (1 - coefs.cos_theta);
+    } else {
+        e = ((S)0.5 * coefs.B - coefs.C) / coefs.A;
+    }
+
+    compute_exp_matrix3(dlog, (S)1 - theta_sq * e, (S)-0.5, e, w);    
+}
+
+template void liegroups::log_diff<float>(float[], float[], const SO3<float>&);
+template void liegroups::log_diff<double>(double[], double[], const SO3<double>&);

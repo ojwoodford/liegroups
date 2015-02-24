@@ -1,4 +1,5 @@
 #include <liegroups/scalar.hpp>
+#include <liegroups/matrix.hpp>
 
 #include <liegroups/se2.hpp>
 #include <liegroups/se2_io.hpp>
@@ -297,6 +298,85 @@ void test_rotv2v()
     CHECK_ERROR<SO3<S> >(err, max_err, "rotv2v");
 }
 
+template <class X, typename Out> struct ChangeScalar;
+
+template <template <typename S> class G, typename S, typename Out>
+struct ChangeScalar<G<S>, Out>
+{
+    typedef G<Out> type;
+};
+
+template <class G>
+void test_exp_diff()
+{
+    typedef typename G::Scalar S;
+    typedef typename ChangeScalar<G,double>::type Gd;
+    
+    const int N = G::DoF;
+    const S max_err = (S)10 * Constants<S>::epsilon() * (S)N;
+    const S max_big_err = Constants<S>::sqrt_epsilon();
+
+    S err;
+    
+    G g;
+    S log_g[N];
+    VecGen<G>::gen_vec(log_g);
+
+    S dexp[N*N];
+    exp_diff(g, dexp, log_g);
+
+    S num_dexp[N*N];
+    {
+        // Compute numerical Jacobian w/ double precision
+        double log_g_mod[N];
+        for (int i=0; i<N; ++i) {
+            log_g_mod[i] = log_g[i];
+        }
+        for (int i=0; i<N; ++i) {
+            const double eps = (S)1e-4;        
+            const double old = log_g_mod[i];
+            Gd hi, lo;
+            log_g_mod[i] = old + eps;
+            exp(hi, log_g_mod);
+            log_g_mod[i] = old - eps;
+            exp(lo, log_g_mod);
+            log_g_mod[i] = old;
+
+            Gd delta;
+            multiply_a_binv(delta, hi, lo);
+
+            double log_d[N];
+            log(log_d, delta);
+
+            for (int j=0; j<N; ++j) {
+                num_dexp[i + j*N] = static_cast<S>(log_d[j] / (2 * eps));
+            }
+        }
+    }
+    err = max_abs_diff(dexp, num_dexp, N*N);
+    CHECK_ERROR<G>(err, max_big_err, "exp_diff_dexp");
+
+    S dlog[N*N];
+    S log_exp[N] = { (S)-9999999 };
+    log_diff(log_exp, dlog, g);
+
+    err = max_abs_diff(log_exp, log_g, N);
+    CHECK_ERROR<G>(err, max_big_err, "log_diff_log");
+
+    S mat[N*N];
+    mat_mult_square<N>(mat, dlog, dexp);
+
+    S id[N*N] = {0};
+
+    for (int i=0; i<N; ++i) {
+        id[i*(N+1)] = 1;
+    }
+
+    err = max_abs_diff(mat, id, N*N);
+    CHECK_ERROR<G>(err, max_big_err, "log_diff_diffprod");
+}
+
+
 int main()
 {
     srand(47);
@@ -308,6 +388,17 @@ int main()
     }
     check_count = 0;
 
+
+    for (int pass=0; pass<passes; ++pass) test_exp_diff<SE2<float> >();
+    for (int pass=0; pass<passes; ++pass) test_exp_diff<SE2<double> >();
+
+    for (int pass=0; pass<passes; ++pass) test_exp_diff<SO3<float> >();
+    for (int pass=0; pass<passes; ++pass) test_exp_diff<SO3<double> >();
+
+    for (int pass=0; pass<passes; ++pass) test_exp_diff<SE3<float> >();
+    for (int pass=0; pass<passes; ++pass) test_exp_diff<SE3<double> >();
+
+    
     for (int pass=0; pass<passes; ++pass) test_group<SE2<float> >();
     for (int pass=0; pass<passes; ++pass) test_group<SE2<double> >();
 
@@ -325,6 +416,7 @@ int main()
     
     //for (int pass=0; pass<passes; ++pass) test_group<SL3<float> >();
     for (int pass=0; pass<passes; ++pass) test_group<SL3<double> >();
+
     
     return 0;
 }
