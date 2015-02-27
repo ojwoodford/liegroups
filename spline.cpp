@@ -120,11 +120,10 @@ void liegroups::eval_product_chain(G &y,
     S *const A1s = scratch1;
 
     const S *pi = pp;
-    const S *bi = bb;
-    for (int i=0; i<n; ++i, pi += N, bi += 3) {
-        const S b = bi[0];
-        const S db = bi[1];
-        const S d2b = bi[2];
+    for (int i=0; i<n; ++i, pi += N) {
+        const S b = bb[i*3 + 0];
+        const S db = bb[i*3 + 1];
+        const S d2b = bb[i*3 + 2];
 
         S x[N];
         scale<N>(x, pi, b);
@@ -145,9 +144,10 @@ void liegroups::eval_product_chain(G &y,
 
             if (dy_dp) {
                 scale<N*N>(dy_dp[0][0], D, b);
-                set_identity<N>(dy_dp[0][1], db);
-                set_identity<N>(dy_dp[0][2], d2b);
-            }            
+                // dy_dp[0][1] <--- db * identity
+                // dy_dp[0][2] <--- d2b * identity
+                // These temporary values are never written explicitly.
+            }
         } else {
             S A1[N];
             scale<N>(A1, pi, db);
@@ -178,7 +178,7 @@ void liegroups::eval_product_chain(G &y,
                 
                 scale<N*N>(dy_dpi, D, b);
 
-                S tmp[N*N];
+                S *const tmp = D;
                 
                 S neg_AdA_dy[N];
                 scale<N>(neg_AdA_dy, AdA_dy, (S)-1);
@@ -216,11 +216,17 @@ void liegroups::eval_product_chain(G &y,
             mat_mult_square<N>(tmp, AdLi, dy_dpi);
             copy<N*N>(dy_dpi, tmp);
 
-            mat_mult_square<N>(tmp, AdLi, ddy_dpi);
-            copy<N*N>(ddy_dpi, tmp);
-
-            mat_mult_square<N>(tmp, AdLi, dd2y_dpi);
-            copy<N*N>(dd2y_dpi, tmp);
+            if (i == 0) {
+                // ddy_dp0 and dd2y_dp0 are implicitly multiples of the identity
+                scale<N*N>(ddy_dpi, AdLi, bb[1]);
+                scale<N*N>(dd2y_dpi, AdLi, bb[2]);
+            } else {
+                mat_mult_square<N>(tmp, AdLi, ddy_dpi);
+                copy<N*N>(ddy_dpi, tmp);
+                
+                mat_mult_square<N>(tmp, AdLi, dd2y_dpi);
+                copy<N*N>(dd2y_dpi, tmp);
+            }
 
             G::ad(tmp, li);
             ::mat_mult_square<N>(dd2y_dpi, tmp, ddy_dpi, ops::Add());
