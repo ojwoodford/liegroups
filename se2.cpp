@@ -14,6 +14,7 @@ void liegroups::SE2<S>::ad_multiply(S ada_b[3], const S a[3], const S b[3])
 {
     ada_b[0] = a[1]*b[2] - a[2]*b[1];
     ada_b[1] = a[2]*b[0] - a[0]*b[2];
+    ada_b[2] = 0;
 }
 
 template void liegroups::SE2<float>::ad_multiply(float[3], const float[3], const float[3]);

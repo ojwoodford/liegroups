@@ -11,4 +11,5 @@ OBJS=   se2.o \
 	sl3.o \
 	sl3_io.o \
 	matrix.o \
-	exp_coefs.o
+	exp_coefs.o \
+	spline.o
