@@ -12,8 +12,9 @@ liegroups::SE2<double>::identity = { {1.0, 0.0}, {0.0, 0.0} };
 template <typename S>
 void liegroups::SE2<S>::ad_multiply(S ada_b[3], const S a[3], const S b[3])
 {
+    const S b0 = b[0];
     ada_b[0] = a[1]*b[2] - a[2]*b[1];
-    ada_b[1] = a[2]*b[0] - a[0]*b[2];
+    ada_b[1] = a[2]*b0   - a[0]*b[2];
     ada_b[2] = 0;
 }
 

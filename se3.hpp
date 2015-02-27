@@ -14,7 +14,9 @@ namespace liegroups {
         enum { DoF = 6, Dim = 3 };
         typedef S Scalar;
 
+        // Output can alias input
         static void ad_multiply(S ada_b[6], const S a[6], const S b[6]);
+        
         static void ad(S ada[6*6], const S a[]);        
     };
 

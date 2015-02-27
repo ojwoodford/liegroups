@@ -14,19 +14,27 @@ template <> const SE3<double>
 SE3<double>::identity = { SO3<double>::identity, {0.0, 0.0, 0.0} };
 
 template <typename S>
+static void cross(S axb[3], const S a[3], const S b[3])
+{
+    const S b0 = b[0];
+    const S b1 = b[1];
+    const S b2 = b[2];
+    axb[0] = a[1]*b2 - a[2]*b1;
+    axb[1] = a[2]*b0 - a[0]*b2;
+    axb[2] = a[0]*b1 - a[1]*b0;
+}
+   
+template <typename S>
 void liegroups::SE3<S>::ad_multiply(S ada_b[6], const S a[6], const S b[6])
 {
-    const S b3 = b[3];
-    const S b4 = b[4];
-    const S b5 = b[5];
-    
-    ada_b[0] = a[1]*b5 - a[2]*b4 + a[4]*b[2] - a[5]*b[1];
-    ada_b[1] = a[2]*b3 - a[0]*b5 + a[5]*b[0] - a[3]*b[2];
-    ada_b[2] = a[0]*b4 - a[1]*b3 + a[3]*b[1] - a[4]*b[0];
-    ada_b[3] = a[4]*b5 - a[5]*b4;
-    ada_b[4] = a[5]*b3 - a[3]*b5;
-    ada_b[5] = a[3]*b4 - a[4]*b3;
+    const S b0 = b[0];
+    const S b1 = b[1];
+    const S b2 = b[2];
+    ada_b[0] = a[1]*b[5] - a[2]*b[4] + a[4]*b2 - a[5]*b1;
+    ada_b[1] = a[2]*b[3] - a[0]*b[5] + a[5]*b0 - a[3]*b2;
+    ada_b[2] = a[0]*b[4] - a[1]*b[3] + a[3]*b1 - a[4]*b0;
 
+    cross(&ada_b[3], &a[3], &b[3]);
 }
 
 template void liegroups::SE3<float>::ad_multiply(float[], const float[], const float[]);
@@ -49,7 +57,7 @@ void liegroups::SE3<S>::ad(S ada[6*6], const S a[6])
 {
     skew3<6>(ada, &a[3]);
     skew3<6>(&ada[3], &a[0]);
-    
+
     for (int i=0; i<3; ++i) {
         for (int j=0; j<3; ++j) {
             ada[(i+3)*6 + j] = 0;
@@ -152,15 +160,6 @@ template void liegroups::transform_point_by_inverse<double,double>(double[3], co
 template void liegroups::transform_point_by_inverse<double,float>(float[3], const SE3<double> &, const float[3]);
 template void liegroups::transform_point_by_inverse<float,double>(double[3], const SE3<float> &, const double[3]);
 
-template <typename S>
-static void cross(S axb[3], const S a[3], const S b[3])
-{
-    axb[0] = a[1]*b[2] - a[2]*b[1];
-    axb[1] = a[2]*b[0] - a[0]*b[2];
-    axb[2] = a[0]*b[1] - a[1]*b[0];
-}
-
-    
 template <class S>
 void liegroups::exp(SE3<S> &X, const S uw[6])
 {
