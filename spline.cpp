@@ -264,6 +264,8 @@ bool liegroups::QuinticSplineSegment<G>::init(S t0_, S t1_,
     t1 = t1_;
 
     const S dt = t1 - t0;
+    if (dt == 0)
+        return false;
         
     y0 = y0_;
     multiply_a_binv(delta, y1, y0);
@@ -276,7 +278,7 @@ bool liegroups::QuinticSplineSegment<G>::init(S t0_, S t1_,
         
     S *const log_delta = &pp[2*N];
     log_diff(log_delta, dlog_delta_ddelta, delta);
-        
+
     return true;
 }
 
@@ -352,3 +354,150 @@ template class liegroups::QuinticSplineSegment<liegroups::SO3<double> >;
 
 template class liegroups::QuinticSplineSegment<liegroups::SE3<float> >;
 template class liegroups::QuinticSplineSegment<liegroups::SE3<double> >;
+
+
+template <class G>
+liegroups::QuinticSpline<G>::QuinticSpline()
+{
+    m_segments = 0;
+    m_max_segments = 0;
+    m_num_segments = 0;
+    m_has_ctrl = false;
+}
+
+// Storage lifetime must contain instance lifetime
+// Clears any initialization; init() must be called after this.
+//
+template <class G>
+void liegroups::QuinticSpline<G>::set_storage(QuinticSplineSegment<G> *segments, size_t max_segments)
+{
+    m_segments = segments;
+    m_max_segments = max_segments;
+    m_num_segments = 0;
+    m_has_ctrl = false;
+}
+
+// Returns true on succes.
+//
+// Returns false if storage doesn't have num_controls - 1 slots,
+// or if control_points[] doesn't have monotonically ascending times.
+//
+// After success, get_num_segments() == num_controls - 1.
+//
+template <class G>
+bool liegroups::QuinticSpline<G>::init(const QuinticSplineControlPoint<G> control_points[],
+                                       size_t num_controls)
+{
+    if (m_max_segments + 1 < num_controls)
+        return false;
+
+    clear();
+
+    for (size_t i=0; i<num_controls; ++i) {
+        if (!push_back(control_points[i]))
+            return false;
+    }
+
+    return true;
+}
+
+// Remove all segments
+template <class G>
+void liegroups::QuinticSpline<G>::clear()
+{
+    m_num_segments = 0;
+    m_has_ctrl = false;
+}
+        
+// Add control point to back, creating an additional segment on
+// all but the first invocation on an empty spline.
+//
+// Returns false if storage is insufficient
+//
+template <class G>
+bool liegroups::QuinticSpline<G>::push_back(const QuinticSplineControlPoint<G> &control_point)
+{
+    if (!m_has_ctrl) {
+        if (m_max_segments == 0)
+            return false;
+
+        m_last_ctrl = control_point;
+        m_has_ctrl = true;
+        return true;
+    }
+
+    if (m_num_segments == m_max_segments)
+        return false;
+
+    if (control_point.t <= m_last_ctrl.t)
+        return false;
+
+    if (!m_segments[m_num_segments].init(m_last_ctrl, control_point))
+        return false;
+
+    ++m_num_segments;
+    m_last_ctrl = control_point;
+    return true;
+}
+        
+// Find the index of the segment containing time t (clamped to front and back)
+template <class G>
+size_t liegroups::QuinticSpline<G>::get_segment_index_for_time(S t) const
+{
+    if (m_num_segments == 0)
+        return 0;
+    
+    if (t <= m_segments[0].get_t1())
+        return 0;
+
+    if (t >= m_segments[m_num_segments - 1].get_t0())
+        return m_num_segments - 1;
+
+    size_t lo = 1;
+    size_t hi = m_num_segments-1;
+    while (lo + 1 < hi) {
+        size_t mid = lo + (hi - lo)/2;
+        if (m_segments[mid].get_t0() <= t) {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
+    }
+
+    return lo;
+}
+
+template <class G>
+bool liegroups::QuinticSpline<G>::copy_from(const QuinticSpline<G> &other)
+{
+    if (m_max_segments < other.m_num_segments)
+        return false;
+
+    for (size_t i=0; i<other.m_num_segments; ++i) {
+        m_segments[i] = other.m_segments[i];
+    }
+    
+    m_num_segments = other.m_num_segments;
+    m_last_ctrl = other.m_last_ctrl;
+    m_has_ctrl = other.m_has_ctrl;
+    return true;
+}
+
+template <class G>
+void liegroups::QuinticSpline<G>::swap(QuinticSpline<G> &other)
+{
+    ::swap(m_segments, other.m_segments);
+    ::swap(m_max_segments, other.m_max_segments);
+    ::swap(m_num_segments, other.m_num_segments);
+    ::swap(m_last_ctrl, other.m_last_ctrl);
+    ::swap(m_has_ctrl, other.m_has_ctrl);
+}
+
+template class liegroups::QuinticSpline<liegroups::SE2<float> >;
+template class liegroups::QuinticSpline<liegroups::SE2<double> >;
+
+template class liegroups::QuinticSpline<liegroups::SO3<float> >;
+template class liegroups::QuinticSpline<liegroups::SO3<double> >;
+
+template class liegroups::QuinticSpline<liegroups::SE3<float> >;
+template class liegroups::QuinticSpline<liegroups::SE3<double> >;
