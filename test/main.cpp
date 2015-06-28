@@ -10,6 +10,8 @@
 #include <liegroups/aff2_io.hpp>
 #include <liegroups/sl3.hpp>
 #include <liegroups/sl3_io.hpp>
+#include <liegroups/sim3.hpp>
+#include <liegroups/sim3_io.hpp>
 
 #include <cassert>
 
@@ -242,6 +244,9 @@ int main()
 
     for (int pass=0; pass<passes; ++pass) test_group<SE3<float> >();
     for (int pass=0; pass<passes; ++pass) test_group<SE3<double> >();
+
+    for (int pass=0; pass<passes; ++pass) test_group<Sim3<float> >();
+    for (int pass=0; pass<passes; ++pass) test_group<Sim3<double> >();
     
     //for (int pass=0; pass<passes; ++pass) test_group<SL3<float> >();
     for (int pass=0; pass<passes; ++pass) test_group<SL3<double> >();

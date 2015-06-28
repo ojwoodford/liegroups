@@ -10,6 +10,9 @@ OBJS=   se2.o \
 	se3_io.o \
 	sl3.o \
 	sl3_io.o \
+	sim3.o \
+	sim3_io.o \
 	matrix.o \
 	exp_coefs.o \
-	spline.o
+	spline.o \
+	spline_io.o

@@ -1,5 +1,6 @@
-#include <cstddef>
 #pragma once
+
+#include <cstddef>
 
 namespace liegroups {
 
