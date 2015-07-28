@@ -200,7 +200,7 @@ bool liegroups::LU_decompose(S A[N*N], int index[N])
 
 // b and x have stride C
 template <int N, int C, typename S>
-void liegroups::LU_inverse_times_vec(S *x, const S LU[N*N], const int index[N], const S *b)
+void liegroups::LU_inverse_times_vec(S x[N*C], const S LU[N*N], const int index[N], const S b[N*C])
 {
     S y[N];
     for (int i=0; i<N; ++i) {

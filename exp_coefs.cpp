@@ -87,11 +87,11 @@ void liegroups::Diff2ExpCoefs<S>::compute(S theta_sq)
     }
 }
 
-template class ExpCoefs<float>;
-template class ExpCoefs<double>;
+template struct ExpCoefs<float>;
+template struct ExpCoefs<double>;
 
-template class DiffExpCoefs<float>;
-template class DiffExpCoefs<double>;
+template struct DiffExpCoefs<float>;
+template struct DiffExpCoefs<double>;
 
-template class Diff2ExpCoefs<float>;
-template class Diff2ExpCoefs<double>;
+template struct Diff2ExpCoefs<float>;
+template struct Diff2ExpCoefs<double>;
