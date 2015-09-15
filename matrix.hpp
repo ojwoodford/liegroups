@@ -9,7 +9,11 @@ namespace liegroups
 
     // Instantiated for N=2,3
     template <int N, typename S>
+#ifndef _MSC_VER
     bool invert(S invm[N*N], const S m[N*N], S *detm=0);
+#else
+    bool invert(S *invm, const S *m, S *detm=0);
+#endif
 
     // A is replaced with L and U (diagonal of U is not stored).
     // Permutation is stored in index.

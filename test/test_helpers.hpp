@@ -9,6 +9,10 @@
 #include <iostream>
 #include <cstdlib>
 
+#ifndef __PRETTY_FUNCTION__
+#define __PRETTY_FUNCTION__ __FUNCTION__
+#endif
+
 namespace {
     
     inline double rand_uniform()
